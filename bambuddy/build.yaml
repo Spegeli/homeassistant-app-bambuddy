@@ -11,4 +11,4 @@ labels:
   org.opencontainers.image.source: "https://github.com/Spegeli/homeassistant-app-bambuddy"
   org.opencontainers.image.licenses: "MIT License"
 args:
-  BAMBUDDY_VERSION: "0.2.2.2"
+  BAMBUDDY_VERSION: "0.2.3.2"
