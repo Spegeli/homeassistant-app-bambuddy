@@ -19,7 +19,7 @@ jobs:
         id: get_version
         run: |
           RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases/latest")
-          LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name' | sed 's/^v//')
           BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
           # Multiline body sicher speichern
