@@ -11,4 +11,4 @@ labels:
   org.opencontainers.image.source: "https://github.com/hobbypunk90/homeassistant-addon-bambuddy"
   org.opencontainers.image.licenses: "MIT License"
 args:
-  BAMBUDDY_VERSION: "0.1.6b5"
+  BAMBUDDY_VERSION: "v0.2.4b1"
