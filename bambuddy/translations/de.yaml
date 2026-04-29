@@ -1,1 +1,6 @@
-
+configuration:
+  debug:
+    name: Debug
+    description: Schalter um Debug Meldungen einzuschalten
+network:
+  8000/tcp: Web Interface
