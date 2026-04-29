@@ -33,15 +33,17 @@ jobs:
       - name: Get current version from build.yaml
         id: get_current
         run: |
-          CURRENT=$(grep 'BAMBUDDY_VERSION' build.yaml | sed 's/.*"\(.*\)"/\1/')
+          # HIER GEÄNDERT: bambuddy/ hinzugefügt
+          CURRENT=$(grep 'BAMBUDDY_VERSION' bambuddy/build.yaml | sed 's/.*"\(.*\)"/\1/')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Aktuelle Version: $CURRENT"
 
       - name: Update build.yaml und config.yaml
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' build.yaml
-          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' config.yaml
+          # HIER GEÄNDERT: bambuddy/ hinzugefügt
+          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' bambuddy/build.yaml
+          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy/config.yaml
           echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
 
       - name: Update CHANGELOG.md
@@ -56,11 +58,13 @@ jobs:
           new_entry = f"## {version}\n\n{body}\n\n"
 
           existing = ""
-          if os.path.exists("CHANGELOG.md"):
-              with open("CHANGELOG.md", "r") as f:
+          # HIER GEÄNDERT: bambuddy/ hinzugefügt
+          if os.path.exists("bambuddy/CHANGELOG.md"):
+              with open("bambuddy/CHANGELOG.md", "r") as f:
                   existing = f.read()
 
-          with open("CHANGELOG.md", "w") as f:
+          # HIER GEÄNDERT: bambuddy/ hinzugefügt
+          with open("bambuddy/CHANGELOG.md", "w") as f:
               f.write(new_entry + existing)
 
           print("CHANGELOG.md aktualisiert")
@@ -74,6 +78,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add build.yaml config.yaml CHANGELOG.md
+          # HIER GEÄNDERT: bambuddy/ hinzugefügt
+          git add bambuddy/build.yaml bambuddy/config.yaml bambuddy/CHANGELOG.md
           git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
           git push
