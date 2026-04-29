@@ -45,13 +45,18 @@ jobs:
       - name: Update CHANGELOG.md
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
-          NEW_ENTRY="## ${{ steps.get_version.outputs.latest }}\n\n${{ steps.get_version.outputs.body }}\n\n"
+          NEW_VERSION="${{ steps.get_version.outputs.latest }}"
+          NEW_BODY="${{ steps.get_version.outputs.body }}"
           
-          # Neuen Eintrag oben in CHANGELOG.md einfügen
+          # Neuen Eintrag als Datei schreiben
+          printf "## %s\n\n%s\n\n" "$NEW_VERSION" "$NEW_BODY" > /tmp/new_entry.md
+          
+          # Mit altem Inhalt zusammenführen
           if [ -f CHANGELOG.md ]; then
-            echo -e "${NEW_ENTRY}$(cat CHANGELOG.md)" > CHANGELOG.md
+            cat /tmp/new_entry.md CHANGELOG.md > /tmp/merged.md
+            mv /tmp/merged.md CHANGELOG.md
           else
-            echo -e "${NEW_ENTRY}" > CHANGELOG.md
+            mv /tmp/new_entry.md CHANGELOG.md
           fi
           echo "CHANGELOG.md aktualisiert"
 
