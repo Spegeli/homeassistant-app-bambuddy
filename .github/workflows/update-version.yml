@@ -56,11 +56,12 @@ jobs:
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Aktuelle Version: $CURRENT"
 
-      - name: Update build.yaml
+      - name: Update build.yaml und config.yaml
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
           sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' build.yaml
-          echo "build.yaml aktualisiert auf ${{ steps.get_version.outputs.latest }}"
+          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' config.yaml
+          echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
 
       - name: Commit and push
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
