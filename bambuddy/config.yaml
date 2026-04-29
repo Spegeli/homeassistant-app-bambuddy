@@ -15,6 +15,11 @@ hassio_role: homeassistant
 privileged:
   - NET_RAW
 homeassistant_api: true
+ingress: true
+ingress_port: 8000
+panel_icon: mdi:printer-3d
+panel_title: Bambuddy
+panel_admin: true
 options:
   debug: false
 schema:
