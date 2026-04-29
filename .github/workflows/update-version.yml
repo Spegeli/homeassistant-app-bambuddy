@@ -1,0 +1,72 @@
+name: Auto-Update BamBuddy Version
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # täglich um 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get latest version tag from ghcr.io
+        id: get_version
+        run: |
+          # Token für ghcr.io holen (anonym)
+          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
+            | jq -r '.token')
+
+          # Manifest von :latest abrufen und den tatsächlichen Tag ermitteln
+          DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/maziggy/bambuddy/manifests/latest" \
+            | jq -r '.config.digest')
+
+          # Alle Tags holen und den passenden zur Digest finden
+          TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://ghcr.io/v2/maziggy/bambuddy/tags/list" \
+            | jq -r '.tags[]')
+
+          LATEST_VERSION=""
+          for TAG in $TAGS; do
+            if [ "$TAG" = "latest" ]; then continue; fi
+            TAG_DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              "https://ghcr.io/v2/maziggy/bambuddy/manifests/$TAG" \
+              | jq -r '.config.digest')
+            if [ "$TAG_DIGEST" = "$DIGEST" ]; then
+              LATEST_VERSION=$TAG
+              break
+            fi
+          done
+
+          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Gefundene Version: $LATEST_VERSION"
+
+      - name: Get current version from build.yaml
+        id: get_current
+        run: |
+          CURRENT=$(grep 'BAMBUDDY_VERSION' build.yaml | sed 's/.*"\(.*\)"/\1/')
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Aktuelle Version: $CURRENT"
+
+      - name: Update build.yaml
+        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+        run: |
+          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' build.yaml
+          echo "build.yaml aktualisiert auf ${{ steps.get_version.outputs.latest }}"
+
+      - name: Commit and push
+        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add build.yaml
+          git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
+          git push
