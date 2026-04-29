@@ -28,3 +28,4 @@ ENV LOG_DIR=/app/logs
 
 # Copy root filesystem
 COPY rootfs /
+RUN chmod a+x /etc/services.d/bambuddy/run /etc/services.d/bambuddy/finish
