@@ -18,9 +18,14 @@ jobs:
       - name: Get latest version from GitHub Releases
         id: get_version
         run: |
-          LATEST=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases/latest" \
-            | jq -r '.tag_name')
+          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases/latest")
+          LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          # Multiline body sicher speichern
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           echo "Gefundene Version: $LATEST"
 
       - name: Get current version from build.yaml
@@ -37,11 +42,24 @@ jobs:
           sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' config.yaml
           echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
 
+      - name: Update CHANGELOG.md
+        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+        run: |
+          NEW_ENTRY="## ${{ steps.get_version.outputs.latest }}\n\n${{ steps.get_version.outputs.body }}\n\n"
+          
+          # Neuen Eintrag oben in CHANGELOG.md einfügen
+          if [ -f CHANGELOG.md ]; then
+            echo -e "${NEW_ENTRY}$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "${NEW_ENTRY}" > CHANGELOG.md
+          fi
+          echo "CHANGELOG.md aktualisiert"
+
       - name: Commit and push
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add build.yaml config.yaml
+          git add build.yaml config.yaml CHANGELOG.md
           git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
           git push
