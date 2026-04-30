@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/hobbypunk90/homeassistant-addon-bambuddy/blob/main/logo.png?raw=true" alt="Bambuddy Logo" width="300">
+  <img src="https://github.com/Spegeli/homeassistant-app-bambuddy/blob/main/logo.png?raw=true" alt="Bambuddy Logo" width="300">
 </p>
 
 # Bambuddy App
@@ -7,6 +7,10 @@
 [Bambuddy](https://github.com/maziggy/bambuddy) wrapped inside a Homeassistant App.
 
 A self-hosted print archive and management system for Bambu Lab 3D printers.
+
+## Installation
+Add repository
+https://github.com/Spegeli/homeassistant-app-bambuddy
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield] ![Supports armhf Architecture][armhf-shield] ![Supports armv7 Architecture][armv7-shield] ![Supports i386 Architecture][i386-shield]
 
