@@ -2,7 +2,7 @@ name: Auto-Update BamBuddy Version
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # täglich um 06:00 UTC
+    - cron: '0 * * * *'  # stündlich
   workflow_dispatch:
 
 env:
