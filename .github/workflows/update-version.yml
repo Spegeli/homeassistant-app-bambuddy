@@ -65,7 +65,7 @@ jobs:
 
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
           with open("bambuddy/CHANGELOG.md", "w") as f:
-              f.write(new_entry + existing)
+              f.write(new_entry)
 
           print("CHANGELOG.md aktualisiert")
           PYEOF
