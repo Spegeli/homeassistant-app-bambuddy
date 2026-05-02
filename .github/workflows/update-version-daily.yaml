@@ -18,34 +18,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Get latest version from GitHub Releases
-        id: get_version
+      - name: Get latest daily version from GitHub Releases
+        id: get_digest
         run: |
-          LATEST="daily"
-          BODY="Latest daily build from ghcr.io/maziggy/bambuddy:daily"
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "Gefundene Version: $LATEST"
+          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
+            | jq -r '.token')
+          DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
+            | jq -r '.config.digest' | cut -c8-15)
+          DATE=$(date +%Y.%m.%d)
+          NEW_VERSION="${DATE}-${DIGEST}"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Neue Version: $NEW_VERSION"
 
-      - name: Update build.yaml und config.yaml
+      - name: Get current version from config.yaml
+        id: get_current
         run: |
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "daily"/' bambuddy-daily/build.yaml
-          sed -i 's/^version: ".*"/version: "daily"/' bambuddy-daily/config.yaml
+          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Aktuelle Version: $CURRENT"
+
+      - name: Update config.yaml
+        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
+        run: |
+          sed -i 's/^version: ".*"/version: "${{ steps.get_digest.outputs.version }}"/' bambuddy-daily/config.yaml
+          echo "config.yaml aktualisiert auf ${{ steps.get_digest.outputs.version }}"
 
       - name: Update CHANGELOG.md
+        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
         run: |
           python3 - <<'PYEOF'
+          import os
+          version = os.environ.get("NEW_VERSION", "")
           with open("bambuddy-daily/CHANGELOG.md", "w") as f:
-              f.write("## daily\n\nLatest daily build from ghcr.io/maziggy/bambuddy:daily\n\n")
+              f.write(f"## {version}\n\nLatest daily build from ghcr.io/maziggy/bambuddy:daily\n\n")
           print("CHANGELOG.md aktualisiert")
           PYEOF
+        env:
+          NEW_VERSION: ${{ steps.get_digest.outputs.version }}
 
       - name: Commit and push
+        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bambuddy-daily/build.yaml bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore: set BamBuddy to daily build"
+          git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore: update BamBuddy Daily ${{ steps.get_current.outputs.current }} → ${{ steps.get_digest.outputs.version }}"
           git push
