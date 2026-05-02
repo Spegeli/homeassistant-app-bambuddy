@@ -4,6 +4,6 @@ configuration:
     description: Flag to enable debug messages
   trusted_frame_origins:
     name: Allowed Origin URLs
-    description: Add your Home Assistant URLs here to allow BamBuddy to be embedded.
+    description: "Format: http:// or https:// followed by an IP address or domain, optionally with :PORT. Examples: http://192.168.1.1:8123 | https://192.168.1.1 | http://homeassistant.local:8123 | https://my-domain.de"
 network:
   8000/tcp: Web Interface
