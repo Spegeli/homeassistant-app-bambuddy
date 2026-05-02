@@ -15,22 +15,10 @@ hassio_role: homeassistant
 privileged:
   - NET_RAW
 homeassistant_api: true
-ingress: true
-ingress_port: 8000
-ingress_entry: /
-panel_icon: mdi:printer-3d
-panel_title: Bambuddy
-panel_admin: true
 options:
-  trusted_frame_origins:
-    - "http://homeassistant.local:8123"
   debug: false
 schema:
-  trusted_frame_origins:
-    - str
   debug: bool
-environment:
-  TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
 ports:
   8000/tcp: 8000
 webui: http://[HOST]:[PORT:8000]
