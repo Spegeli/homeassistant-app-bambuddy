@@ -1,8 +1,8 @@
 name: Auto-Update BamBuddy Version - STABLE & BETA
 
 on:
-  #schedule:
-  #  - cron: '0 * * * *'  # stündlich
+  schedule:
+    - cron: '0 * * * *'  # stündlich
   workflow_dispatch:
 
 env:
@@ -34,7 +34,7 @@ jobs:
         id: get_current
         run: |
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          CURRENT=$(grep 'BAMBUDDY_VERSION' bambuddy/build.yaml | sed 's/.*"\(.*\)"/\1/')
+          CURRENT=$(grep 'BAMBUDDY_VERSION' bambuddy-beta/build.yaml | sed 's/.*"\(.*\)"/\1/')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Aktuelle Version: $CURRENT"
 
@@ -42,8 +42,8 @@ jobs:
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' bambuddy/build.yaml
-          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy/config.yaml
+          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' bambuddy-beta/build.yaml
+          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy-beta/config.yaml
           echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
 
       - name: Update CHANGELOG.md
@@ -59,12 +59,12 @@ jobs:
 
           existing = ""
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          if os.path.exists("bambuddy/CHANGELOG.md"):
-              with open("bambuddy/CHANGELOG.md", "r") as f:
+          if os.path.exists("bambuddy-beta/CHANGELOG.md"):
+              with open("bambuddy-beta/CHANGELOG.md", "r") as f:
                   existing = f.read()
 
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          with open("bambuddy/CHANGELOG.md", "w") as f:
+          with open("bambuddy-beta/CHANGELOG.md", "w") as f:
               f.write(new_entry)
 
           print("CHANGELOG.md aktualisiert")
@@ -79,6 +79,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          git add bambuddy/build.yaml bambuddy/config.yaml bambuddy/CHANGELOG.md
+          git add bambuddy-beta/build.yaml bambuddy-beta/config.yaml bambuddy-beta/CHANGELOG.md
           git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
           git push
