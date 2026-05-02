@@ -2,7 +2,7 @@
 ARG BAMBUDDY_VERSION
 ARG BUILD_FROM
 
-FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION} as builder
+FROM ghcr.io/maziggy/bambuddy:daily as builder
 FROM $BUILD_FROM
 
 WORKDIR /app
