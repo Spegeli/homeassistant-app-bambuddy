@@ -21,65 +21,31 @@ jobs:
       - name: Get latest version from GitHub Releases
         id: get_version
         run: |
-          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases" \
-            | jq '[.[] | select(.prerelease == true)] | first')
-          LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name' | sed 's/^v//')
-          BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
+          LATEST="daily"
+          BODY="Latest daily build from ghcr.io/maziggy/bambuddy:daily"
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "Gefundene Version: $LATEST"
 
-      - name: Get current version from build.yaml
-        id: get_current
-        run: |
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          CURRENT=$(grep 'BAMBUDDY_VERSION' bambuddy/build.yaml | sed 's/.*"\(.*\)"/\1/')
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Aktuelle Version: $CURRENT"
-
       - name: Update build.yaml und config.yaml
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' bambuddy/build.yaml
-          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy/config.yaml
-          echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
+          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "daily"/' bambuddy/build.yaml
+          sed -i 's/^version: ".*"/version: "daily"/' bambuddy/config.yaml
 
       - name: Update CHANGELOG.md
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
           python3 - <<'PYEOF'
-          import os
-
-          version = os.environ.get("NEW_VERSION", "")
-          body = os.environ.get("NEW_BODY", "")
-
-          new_entry = f"## {version}\n\n{body}\n\n"
-
-          existing = ""
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          if os.path.exists("bambuddy/CHANGELOG.md"):
-              with open("bambuddy/CHANGELOG.md", "r") as f:
-                  existing = f.read()
-
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
           with open("bambuddy/CHANGELOG.md", "w") as f:
-              f.write(new_entry)
-
+              f.write("## daily\n\nLatest daily build from ghcr.io/maziggy/bambuddy:daily\n\n")
           print("CHANGELOG.md aktualisiert")
           PYEOF
-        env:
-          NEW_VERSION: ${{ steps.get_version.outputs.latest }}
-          NEW_BODY: ${{ steps.get_version.outputs.body }}
 
       - name: Commit and push
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
           git add bambuddy/build.yaml bambuddy/config.yaml bambuddy/CHANGELOG.md
-          git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
+          git diff --staged --quiet || git commit -m "chore: set BamBuddy to daily build"
           git push
