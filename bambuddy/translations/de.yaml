@@ -2,8 +2,5 @@ configuration:
   debug:
     name: Debug
     description: Schalter um Debug Meldungen einzuschalten
-  trusted_frame_origins:
-    name: Erlaubte Ursprungs-URLs
-    description: Füge hier deine Home Assistant URLs hinzu damit BamBuddy eingebettet werden kann.
 network:
   8000/tcp: Web Interface
