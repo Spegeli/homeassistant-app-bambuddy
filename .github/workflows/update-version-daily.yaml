@@ -18,25 +18,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Get latest daily version from GitHub Releases
+      - name: Get latest daily digest from ghcr.io
         id: get_digest
         run: |
           TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
             | jq -r '.token')
-          
-          DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+
+          DIGEST=$(curl -sI -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
             "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
-            | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest' \
-            | cut -c8-15)
-          
+            | grep -i "docker-content-digest" | tr -d '\r' | awk '{print $2}')
+
           if [ -z "$DIGEST" ]; then
             echo "ERROR: Digest konnte nicht abgerufen werden!"
             exit 1
           fi
-          
+
+          SHORT=$(echo "$DIGEST" | cut -c8-15)
           DATE=$(date +%Y.%m.%d)
-          NEW_VERSION="${DATE}-${DIGEST}"
+          NEW_VERSION="${DATE}-${SHORT}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "Neue Version: $NEW_VERSION"
 
