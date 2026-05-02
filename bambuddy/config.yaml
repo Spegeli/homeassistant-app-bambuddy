@@ -17,6 +17,7 @@ privileged:
 homeassistant_api: true
 ingress: true
 ingress_port: 8000
+ingress_entry: /
 panel_icon: mdi:printer-3d
 panel_title: Bambuddy
 panel_admin: true
