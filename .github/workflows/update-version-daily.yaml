@@ -1,4 +1,4 @@
-name: Auto-Update BamBuddy Version - DAILY BETA
+name: Auto-Update BamBuddy Version - DAILY
 
 on:
   schedule:
