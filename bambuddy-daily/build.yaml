@@ -10,5 +10,3 @@ labels:
   org.opencontainers.image.description: "A powerful, self-hosted print archive and management system for Bambu Lab 3D printers."
   org.opencontainers.image.source: "https://github.com/Spegeli/homeassistant-app-bambuddy"
   org.opencontainers.image.licenses: "MIT License"
-args:
-  BAMBUDDY_VERSION: "daily"
