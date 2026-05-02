@@ -1,4 +1,4 @@
-name: Auto-Update BamBuddy Version - STABLE & BETA
+name: Auto-Update BamBuddy Version - BETA
 
 on:
   schedule:
