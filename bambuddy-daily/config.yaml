@@ -27,7 +27,7 @@ options:
   debug: false
 schema:
   trusted_frame_origins:
-    - "str(^https?://(([0-9]{1,3}\\.){3}[0-9]{1,3}|[a-zA-Z0-9.-]+)(:[0-9]{1,5})?$)"
+    - str
   debug: bool
 environment:
   TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
