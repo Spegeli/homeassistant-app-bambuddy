@@ -21,7 +21,8 @@ jobs:
       - name: Get latest version from GitHub Releases
         id: get_version
         run: |
-          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases/latest")
+          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases" \
+            | jq '[.[] | select(.prerelease == false) | select(.tag_name | ltrimstr("v") | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)*b[0-9]+$"))] | first')
           LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name' | sed 's/^v//')
           BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
