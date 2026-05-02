@@ -1,0 +1,41 @@
+name: TEST WORKFLOW
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Get current daily digest from ghcr.io
+        id: get_digest
+        run: |
+          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
+            | jq -r '.token')
+          
+          MANIFEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily")
+          
+          echo "=== MANIFEST RESPONSE ==="
+          echo "$MANIFEST" | jq '.'
+          echo "========================="
+          
+          DATE=$(date +%Y.%m.%d)
+          echo "version=${DATE}-debug" >> $GITHUB_OUTPUT
+
+      - name: Get current version from config.yaml
+        id: get_current
+        run: |
+          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Aktuelle Version: $CURRENT"
