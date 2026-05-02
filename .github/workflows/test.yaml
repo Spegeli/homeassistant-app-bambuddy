@@ -16,27 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Get current daily digest from ghcr.io
-        id: get_digest
+      - name: Get daily release info from GitHub
         run: |
-          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
-            | jq -r '.token')
-
-          # Digest direkt aus dem Response-Header holen
-          DIGEST=$(curl -sI -H "Authorization: Bearer $TOKEN" \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
-            "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
-            | grep -i "docker-content-digest" | tr -d '\r' | awk '{print $2}')
-
-          echo "=== DIGEST AUS HEADER ==="
-          echo "$DIGEST"
-          echo "========================="
-
-          # Kurzer Hash (Zeichen 8-15 nach sha256:)
-          SHORT=$(echo "$DIGEST" | cut -c8-15)
-          echo "Kurzer Hash: $SHORT"
-
-          DATE=$(date +%Y.%m.%d)
-          echo "version=${DATE}-${SHORT}" >> $GITHUB_OUTPUT
-          echo "Neue Version: ${DATE}-${SHORT}"
+          echo "=== ALLE RELEASES (erste 5) ==="
+          curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=5" \
+            | jq '[.[] | {tag_name, name, prerelease, body: .body[:200]}]'
+          
+          echo "=== NUR PRE-RELEASES ==="
+          curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=10" \
+            | jq '[.[] | select(.prerelease == true) | {tag_name, name, prerelease, body: .body[:200]}]'
