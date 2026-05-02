@@ -1,4 +1,4 @@
-name: Auto-Update BamBuddy Version - STABLE ONLY
+name: Auto-Update BamBuddy Version - STABLE
 
 on:
   schedule:
