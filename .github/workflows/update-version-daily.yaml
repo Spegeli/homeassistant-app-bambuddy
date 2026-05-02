@@ -41,6 +41,16 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "Neue Version: $NEW_VERSION"
 
+      - name: Get daily changelog from GitHub Releases
+        id: get_changelog
+        run: |
+          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=10" \
+            | jq '[.[] | select(.prerelease == true)] | first')
+          BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Get current version from config.yaml
         id: get_current
         run: |
@@ -60,12 +70,14 @@ jobs:
           python3 - <<'PYEOF'
           import os
           version = os.environ.get("NEW_VERSION", "")
+          body = os.environ.get("NEW_BODY", "")
           with open("bambuddy-daily/CHANGELOG.md", "w") as f:
-              f.write(f"## {version}\n\nLatest daily build from ghcr.io/maziggy/bambuddy:daily\n\n")
+              f.write(f"## {version}\n\n{body}\n\n")
           print("CHANGELOG.md aktualisiert")
           PYEOF
         env:
           NEW_VERSION: ${{ steps.get_digest.outputs.version }}
+          NEW_BODY: ${{ steps.get_changelog.outputs.body }}
 
       - name: Commit and push
         if: steps.get_digest.outputs.version != steps.get_current.outputs.current
