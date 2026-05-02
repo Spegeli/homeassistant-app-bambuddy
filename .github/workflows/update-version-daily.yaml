@@ -1,8 +1,8 @@
 name: Auto-Update BamBuddy Version - DAILY BETA
 
 on:
-  #schedule:
-  #  - cron: '0 * * * *'  # stündlich
+  schedule:
+    - cron: '0 * * * *'  # stündlich
   workflow_dispatch:
 
 env:
@@ -31,13 +31,13 @@ jobs:
 
       - name: Update build.yaml und config.yaml
         run: |
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "daily"/' bambuddy/build.yaml
-          sed -i 's/^version: ".*"/version: "daily"/' bambuddy/config.yaml
+          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "daily"/' bambuddy-daily/build.yaml
+          sed -i 's/^version: ".*"/version: "daily"/' bambuddy-daily/config.yaml
 
       - name: Update CHANGELOG.md
         run: |
           python3 - <<'PYEOF'
-          with open("bambuddy/CHANGELOG.md", "w") as f:
+          with open("bambuddy-daily/CHANGELOG.md", "w") as f:
               f.write("## daily\n\nLatest daily build from ghcr.io/maziggy/bambuddy:daily\n\n")
           print("CHANGELOG.md aktualisiert")
           PYEOF
@@ -46,6 +46,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bambuddy/build.yaml bambuddy/config.yaml bambuddy/CHANGELOG.md
+          git add bambuddy-daily/build.yaml bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
           git diff --staged --quiet || git commit -m "chore: set BamBuddy to daily build"
           git push
