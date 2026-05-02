@@ -1,8 +1,8 @@
 name: Auto-Update BamBuddy Version - STABLE ONLY
 
 on:
-  #schedule:
-  #  - cron: '0 * * * *'  # stündlich
+  schedule:
+    - cron: '0 * * * *'  # stündlich
   workflow_dispatch:
 
 env:
