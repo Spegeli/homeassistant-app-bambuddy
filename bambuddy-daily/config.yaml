@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
 name: Bambuddy (Daily)
-version: "2026.05.01-4b23d11c"
+version: "2026.05.02-4b23d11c"
 slug: bambuddy_daily
 description: Bambuddy is a powerful, self-hosted print archive and management system for Bambu Lab 3D printers.
 url: "https://github.com/Spegeli/homeassistant-app-bambuddy"
