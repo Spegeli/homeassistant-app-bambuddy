@@ -1,5 +1,4 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
-ARG BAMBUDDY_VERSION
 ARG BUILD_FROM
 
 FROM ghcr.io/maziggy/bambuddy:daily as builder
