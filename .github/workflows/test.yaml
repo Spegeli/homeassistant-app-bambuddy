@@ -1,4 +1,4 @@
-name: Auto-Update BamBuddy Version - DAILY TEST
+name: TEST WORKFLOW
 
 on:
   workflow_dispatch:
