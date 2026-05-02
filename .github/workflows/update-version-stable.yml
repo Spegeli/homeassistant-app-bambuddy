@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Get latest version from GitHub Releases
+      - name: Get latest stable version from GitHub Releases
         id: get_version
         run: |
           RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases" \
