@@ -1,4 +1,4 @@
-name: TEST WORKFLOW
+name: Auto-Update BamBuddy Version - DAILY TEST
 
 on:
   workflow_dispatch:
@@ -16,12 +16,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Get daily release info from GitHub
+      - name: Get daily changelog from GitHub Releases
+        id: get_changelog
         run: |
-          echo "=== ALLE RELEASES (erste 5) ==="
-          curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=5" \
-            | jq '[.[] | {tag_name, name, prerelease, body: .body[:200]}]'
+          RELEASE_JSON=$(curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=10" \
+            | jq '[.[] | select(.prerelease == true)] | first')
           
-          echo "=== NUR PRE-RELEASES ==="
-          curl -s "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=10" \
-            | jq '[.[] | select(.prerelease == true) | {tag_name, name, prerelease, body: .body[:200]}]'
+          BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
+          TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          
+          echo "=== GEFUNDENER TAG ==="
+          echo "$TAG"
+          echo "=== CHANGELOG BODY ==="
+          echo "$BODY"
+          echo "======================"
+          
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get daily digest from ghcr.io
+        id: get_digest
+        run: |
+          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
+            | jq -r '.token')
+
+          DIGEST=$(curl -sI -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
+            | grep -i "docker-content-digest" | tr -d '\r' | awk '{print $2}')
+
+          SHORT=$(echo "$DIGEST" | cut -c8-15)
+          DATE=$(date +%Y.%m.%d)
+          NEW_VERSION="${DATE}-${SHORT}"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Neue Version: $NEW_VERSION"
+
+      - name: Test CHANGELOG output
+        run: |
+          python3 - <<'PYEOF'
+          import os
+          version = os.environ.get("NEW_VERSION", "")
+          body = os.environ.get("NEW_BODY", "")
+          print(f"=== CHANGELOG VORSCHAU ===")
+          print(f"## {version}")
+          print()
+          print(body)
+          print("==========================")
+          PYEOF
+        env:
+          NEW_VERSION: ${{ steps.get_digest.outputs.version }}
+          NEW_BODY: ${{ steps.get_changelog.outputs.body }}
