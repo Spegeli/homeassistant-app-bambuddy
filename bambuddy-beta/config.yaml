@@ -27,7 +27,7 @@ options:
   debug: false
 schema:
   trusted_frame_origins:
-    - str
+    - "str(^https?://[^\\s]+$)"
   debug: bool
 environment:
   TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
