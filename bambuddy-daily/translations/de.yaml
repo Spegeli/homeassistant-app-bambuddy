@@ -3,7 +3,7 @@ configuration:
     name: Debug
     description: Schalter um Debug Meldungen einzuschalten
   trusted_frame_origins:
-    name: Vertrauenswürdige Frame-Ursprünge
-    description: Kommagetrennte Liste von URLs die BamBuddy in einem iFrame einbetten dürfen (z.B. http://homeassistant.local:8123). Leer lassen wenn nicht benötigt.
+    name: Erlaubte Ursprungs-URLs
+    description: URLs von denen aus BamBuddy in Home Assistant eingebettet werden darf (z.B. deine HA Adresse). Mehrere Einträge sind möglich.
 network:
   8000/tcp: Web Interface
