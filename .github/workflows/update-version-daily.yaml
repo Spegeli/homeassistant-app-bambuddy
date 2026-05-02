@@ -23,10 +23,18 @@ jobs:
         run: |
           TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" \
             | jq -r '.token')
+          
           DIGEST=$(curl -s -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
             "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
-            | jq -r '.config.digest' | cut -c8-15)
+            | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest' \
+            | cut -c8-15)
+          
+          if [ -z "$DIGEST" ]; then
+            echo "ERROR: Digest konnte nicht abgerufen werden!"
+            exit 1
+          fi
+          
           DATE=$(date +%Y.%m.%d)
           NEW_VERSION="${DATE}-${DIGEST}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
