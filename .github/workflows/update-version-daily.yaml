@@ -39,6 +39,7 @@ jobs:
           DATE=$(date +%Y.%m.%d)
           NEW_VERSION="${DATE}-${SHORT}"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "short=$SHORT" >> $GITHUB_OUTPUT
           echo "Neue Version: $NEW_VERSION"
 
       - name: Get daily changelog from GitHub Releases
@@ -55,17 +56,19 @@ jobs:
         id: get_current
         run: |
           CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
+          CURRENT_SHORT=$(echo "$CURRENT" | cut -d'-' -f2)
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Aktuelle Version: $CURRENT"
+          echo "current_short=$CURRENT_SHORT" >> $GITHUB_OUTPUT
+          echo "Aktuelle Version: $CURRENT (SHA: $CURRENT_SHORT)"
 
       - name: Update config.yaml
-        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
+        if: steps.get_digest.outputs.short != steps.get_current.outputs.current_short
         run: |
           sed -i 's/^version: ".*"/version: "${{ steps.get_digest.outputs.version }}"/' bambuddy-daily/config.yaml
           echo "config.yaml aktualisiert auf ${{ steps.get_digest.outputs.version }}"
 
       - name: Update CHANGELOG.md
-        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
+        if: steps.get_digest.outputs.short != steps.get_current.outputs.current_short
         run: |
           python3 - <<'PYEOF'
           import os
@@ -80,7 +83,7 @@ jobs:
           NEW_BODY: ${{ steps.get_changelog.outputs.body }}
 
       - name: Commit and push
-        if: steps.get_digest.outputs.version != steps.get_current.outputs.current
+        if: steps.get_digest.outputs.short != steps.get_current.outputs.current_short
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
