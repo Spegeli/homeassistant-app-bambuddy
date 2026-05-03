@@ -1,4 +1,4 @@
-## 2026.05.02-4b23d11c
+## 2026.05.03-4b23d11c
 
 > [!NOTE]
 > This is a **daily beta build** (2026-05-02). It contains the latest fixes and improvements but may have undiscovered issues.
