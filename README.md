@@ -8,9 +8,28 @@
 
 A self-hosted print archive and management system for Bambu Lab 3D printers.
 
-## Installation
-Add repository
-https://github.com/Spegeli/homeassistant-app-bambuddy
+## 📦 Installation
+
+1. In Home Assistant, navigate to:
+   **Settings → Apps → App Store**
+
+2. Add the following repository:
+
+   [![Install Add-on](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Spegeli/homeassistant-app-bambuddy)
+
+   Or add it manually:
+   `https://github.com/Spegeli/homeassistant-app-bambuddy`
+
+3. Once the repository is added, you'll find **three versions** of BamBuddy available:
+
+   | Version | Description |
+   |---|---|
+   | **BamBuddy** | ✅ Stable release — recommended for most users |
+   | **BamBuddy (Beta)** | 🧪 Beta release — newer features, may contain bugs |
+   | **BamBuddy (Daily)** | 🔬 Daily build — cutting-edge, least stable |
+
+4. Install your preferred version and follow the configuration steps.
+
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield] ![Supports armhf Architecture][armhf-shield] ![Supports armv7 Architecture][armv7-shield] ![Supports i386 Architecture][i386-shield]
 
