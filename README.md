@@ -4,12 +4,12 @@
 
 # 🚀 Bambuddy – Home Assistant App
 
-[Bambuddy](https://github.com/maziggy/bambuddy) wrapped inside a Homeassistant App.
-
+<p align="center">
+  [Bambuddy](https://github.com/maziggy/bambuddy), delivered as a first-class Home Assistant App for easy installation and updates.
+</p>
 <p align="center">
   <strong>Self-hosted print archive and management system for Bambu Lab 3D printers</strong>
 </p>
-
 <p align="center">
   <img src="https://img.shields.io/badge/aarch64-yes-green.svg">
   <img src="https://img.shields.io/badge/amd64-yes-green.svg">
