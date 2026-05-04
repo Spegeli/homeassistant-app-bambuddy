@@ -1,4 +1,4 @@
-# Home Assistant App: Bambuddy - BETA
+# Home Assistant App: Bambuddy - DAILY / DEV
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield]
 
