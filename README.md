@@ -18,6 +18,7 @@
   <img src="https://img.shields.io/badge/i386-yes-green.svg">
 </p>
 
+---
 
 ## 📦 Installation
 
@@ -41,6 +42,7 @@
 
 4. Install your preferred version and follow the configuration steps.
 
+---
 
 ## ⚠️ Disclaimer
  
