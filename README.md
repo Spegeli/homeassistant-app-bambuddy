@@ -40,3 +40,14 @@
    | **BamBuddy (Daily)** | 🔬 Daily build — cutting-edge, least stable |
 
 4. Install your preferred version and follow the configuration steps.
+
+
+## ⚠️ Disclaimer
+ 
+This is **not** an official release by the BamBuddy developer. This project simply packages [BamBuddy](https://github.com/maziggy/bambuddy) as a native Home Assistant App for easy installation and updates.
+ 
+I am not affiliated with or the developer of BamBuddy itself — therefore I am unable to provide support for BamBuddy-related issues, bugs, or feature requests. For anything related to BamBuddy, please refer to the original project:
+ 
+👉 **[github.com/maziggy/bambuddy](https://github.com/maziggy/bambuddy)**
+ 
+Support provided here is limited to the **Home Assistant App packaging and its installation** only.
