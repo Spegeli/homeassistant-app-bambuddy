@@ -5,11 +5,8 @@ slug: bambuddy_beta
 description: Bambuddy is a powerful, self-hosted print archive and management system for Bambu Lab 3D printers.
 url: "https://github.com/Spegeli/homeassistant-app-bambuddy"
 arch:
-  - armhf
-  - armv7
   - aarch64
   - amd64
-  - i386
 init: false
 hassio_role: homeassistant
 privileged:
