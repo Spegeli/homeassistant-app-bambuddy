@@ -5,7 +5,7 @@
 # 🚀 Bambuddy – Home Assistant App
 
 <p align="center">
-  [Bambuddy](https://github.com/maziggy/bambuddy), delivered as a first-class Home Assistant App for easy installation and updates.
+  <a href="https://github.com/maziggy/bambuddy">Bambuddy</a>, delivered as a first-class Home Assistant App for easy installation and updates.
 </p>
 <p align="center">
   <strong>Self-hosted print archive and management system for Bambu Lab 3D printers</strong>
