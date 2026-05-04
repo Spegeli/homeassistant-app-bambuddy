@@ -44,6 +44,16 @@
 
 ---
 
+## 🔄 Automatic Updates
+ 
+This App includes automatic update tracking for all three versions (Stable, Beta and Daily).
+ 
+Updates are checked **every hour**. As soon as a new BamBuddy release is available, it will automatically appear in Home Assistant — ready to install with a single click, just like any other App update.
+ 
+No manual intervention required. 🎉
+
+---
+
 ## ⚠️ Disclaimer
  
 This is **not** an official release by the BamBuddy developer. This project simply packages [BamBuddy](https://github.com/maziggy/bambuddy) as a native Home Assistant App for easy installation and updates.
