@@ -13,9 +13,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/aarch64-yes-green.svg">
   <img src="https://img.shields.io/badge/amd64-yes-green.svg">
-  <img src="https://img.shields.io/badge/armhf-yes-green.svg">
-  <img src="https://img.shields.io/badge/armv7-yes-green.svg">
-  <img src="https://img.shields.io/badge/i386-yes-green.svg">
 </p>
 
 ---
