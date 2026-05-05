@@ -24,9 +24,7 @@ environment:
   TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
 ports:
   8000/tcp: 8000
-  8443/tcp: 8443
 ports_description:
   8000/tcp: "HTTP Web Interface"
-  8443/tcp: "HTTPS Web Interface"
 webui: http://[HOST]:[PORT:8000]
 watchdog: http://[HOST]:[PORT:8000]/health
