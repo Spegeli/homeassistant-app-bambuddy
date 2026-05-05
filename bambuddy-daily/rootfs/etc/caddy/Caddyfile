@@ -1,0 +1,8 @@
+{
+    auto_https off
+}
+
+:8443 {
+    tls internal
+    reverse_proxy localhost:8000
+}
