@@ -13,8 +13,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/aarch64-yes-green.svg">
   <img src="https://img.shields.io/badge/amd64-yes-green.svg">
-  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?label=stable&color=blue">
-  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?include_prereleases&label=beta&color=orange">
+  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?label=beta&color=blue">
+  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?include_prereleases&label=daily&color=orange">
 </p>
 
 ---
