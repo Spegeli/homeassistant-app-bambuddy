@@ -31,19 +31,17 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           echo "Gefundene Version: $LATEST"
 
-      - name: Get current version from build.yaml
+      - name: Get current version from Dockerfile
         id: get_current
         run: |
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          CURRENT=$(grep 'BAMBUDDY_VERSION' bambuddy-beta/build.yaml | sed 's/.*"\(.*\)"/\1/')
+          CURRENT=$(grep '^ARG BAMBUDDY_VERSION=' bambuddy-beta/Dockerfile | sed 's/ARG BAMBUDDY_VERSION=//')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Aktuelle Version: $CURRENT"
 
-      - name: Update build.yaml und config.yaml
+      - name: Update Dockerfile und config.yaml
         if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
         run: |
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          sed -i 's/BAMBUDDY_VERSION: ".*"/BAMBUDDY_VERSION: "${{ steps.get_version.outputs.latest }}"/' bambuddy-beta/build.yaml
+          sed -i 's/^ARG BAMBUDDY_VERSION=.*/ARG BAMBUDDY_VERSION=${{ steps.get_version.outputs.latest }}/' bambuddy-beta/Dockerfile
           sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy-beta/config.yaml
           echo "Beide Dateien aktualisiert auf ${{ steps.get_version.outputs.latest }}"
 
@@ -59,12 +57,10 @@ jobs:
           new_entry = f"## {version}\n\n{body}\n\n"
 
           existing = ""
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
           if os.path.exists("bambuddy-beta/CHANGELOG.md"):
               with open("bambuddy-beta/CHANGELOG.md", "r") as f:
                   existing = f.read()
 
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
           with open("bambuddy-beta/CHANGELOG.md", "w") as f:
               f.write(new_entry)
 
@@ -79,7 +75,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # HIER GEÄNDERT: bambuddy/ hinzugefügt
-          git add bambuddy-beta/build.yaml bambuddy-beta/config.yaml bambuddy-beta/CHANGELOG.md
+          git add bambuddy-beta/Dockerfile bambuddy-beta/config.yaml bambuddy-beta/CHANGELOG.md
           git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} → ${{ steps.get_version.outputs.latest }}"
           git push
