@@ -22,27 +22,38 @@
 
 ---
 
+## 📋 Requirements
+
+- Home Assistant OS or Supervised installation (Supervisor required)
+- Supported architecture: aarch64 or amd64
+
+---
+
 ## 📦 Installation
 
-1. In Home Assistant, navigate to:
-   **Settings → Apps → App Store**
+### Via button (recommended)
 
-2. Add the following repository:
+Click the button below to automatically add the repository to Home Assistant:
 
-   [![Install Add-on](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Spegeli/homeassistant-app-bambuddy)
+[![Add Repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Spegeli/homeassistant-app-bambuddy)
 
-   Or add it manually:
-   `https://github.com/Spegeli/homeassistant-app-bambuddy`
+### Manually
 
-3. Once the repository is added, you'll find **three versions** of BamBuddy available:
+1. In Home Assistant, go to **Settings → Apps → App Store**
+2. Click the three-dot menu → **Repositories**
+3. Add `https://github.com/Spegeli/homeassistant-app-bambuddy`
 
-   | Version | Description |
-   |---|---|
-   | **BamBuddy** | ✅ Stable release — recommended for most users |
-   | **BamBuddy (Beta)** | 🧪 Beta release — newer features, may contain bugs |
-   | **BamBuddy (Daily)** | 🔬 Daily build — cutting-edge, least stable |
+---
 
-4. Install your preferred version and follow the configuration steps.
+Once the repository is added, you'll find **three versions** of BamBuddy available:
+
+| Version | Description |
+|---|---|
+| **BamBuddy** | ✅ Stable release — recommended for most users |
+| **BamBuddy (Beta)** | 🧪 Beta release — newer features, may contain bugs |
+| **BamBuddy (Daily)** | 🔬 Daily build — cutting-edge, least stable |
+
+Install your preferred version and follow the configuration steps.
 
 ---
 
