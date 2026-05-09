@@ -13,8 +13,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/aarch64-yes-green.svg">
   <img src="https://img.shields.io/badge/amd64-yes-green.svg">
-  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?label=beta&color=blue">
-  <img src="https://img.shields.io/github/v/release/maziggy/bambuddy?include_prereleases&label=daily&color=orange">
+  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy/config.yaml&query=$.version&label=stable&color=blue">
+  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-beta/config.yaml&query=$.version&label=beta&color=orange">
+  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-daily/config.yaml&query=$.version&label=daily&color=purple">
 </p>
 
 ---
