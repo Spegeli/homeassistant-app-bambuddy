@@ -9,12 +9,12 @@ declare debug
 debug=$(bashio::config 'debug')
 
 bashio::log.info 'Link data dir'
-mkdir -p /data/data
-mkdir -p /data/logs
-rm -r /app/data
-rm -r /app/logs
-ln -s /data/data /app/data
-ln -s /data/logs /app/logs
+mkdir -p /config/data
+mkdir -p /config/logs
+rm -rf /app/data
+rm -rf /app/logs
+ln -s /config/data /app/data
+ln -s /config/logs /app/logs
 
 cd /app
 
