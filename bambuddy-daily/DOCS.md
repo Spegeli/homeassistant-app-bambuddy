@@ -1,6 +1,4 @@
-# Bambuddy (Daily) – Documentation
-
-> ⚠️ This is a daily build. It contains the latest fixes and improvements but may have undiscovered issues. Not recommended for production use.
+# Bambuddy (Beta) – Documentation
 
 ## Configuration Options
 
