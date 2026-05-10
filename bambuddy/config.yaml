@@ -18,5 +18,5 @@ options:
   debug: false
 schema:
   debug: bool
-webui: http://[HOST]:[8000]
-watchdog: http://[HOST]:[8000]/health
+webui: http://[HOST]:[PORT:8000]
+watchdog: http://[HOST]:[PORT:8000]/health
