@@ -18,5 +18,9 @@ options:
   debug: false
 schema:
   debug: bool
+ports:
+  8000/tcp: 8000
+ports_description:
+  8000/tcp: "HTTP Web Interface"
 webui: http://[HOST]:8000
 watchdog: http://[HOST]:8000/health
