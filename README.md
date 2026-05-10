@@ -79,31 +79,6 @@ All BamBuddy data (print archive, settings, logs) is stored persistently in the 
  
 HA Ingress is currently **not supported** and is not planned. Bambuddy's SPA architecture relies on a stable origin for API calls, routing, PWA scope, and service workers — all of which are incompatible with HA Ingress's rotating per-session subpaths. This would require extensive rewrites to Bambuddy core.
  
----
- 
-### Embedding via Webpage Panel
- 
-As a workaround, Bambuddy can be embedded inside the Home Assistant dashboard using a **Webpage Panel** or **Webpage Card**:
- 
-1. In Home Assistant go to **Settings → Dashboards** (or edit your dashboard)
-2. Add a **Webpage Card** or **Webpage Panel**
-3. Set the URL to:
-   ```
-   http://<your-ha-ip>:8000
-   ```
-   Example: `http://192.168.178.3:8000`
-4. Under the addon configuration, add your HA URL to **Allowed Origin URLs**:
-   ```
-   http://<your-ha-ip>:8123
-   http://homeassistant.local:8123
-   ```
- 
-**Limitations of this approach:**
-- Works on **LAN only** — not available when accessing HA remotely via HTTPS (Nabu Casa, custom domain, etc.)
-- When accessing HA over HTTPS externally, browsers block HTTP iframes (mixed content policy)
-
----
-
 ### Virtual Printer — Potential Port Conflicts
 
 When using BamBuddy's Virtual Printer feature, several ports will be bound directly on the Home Assistant host. This may conflict with other installed Apps or services (most notably the **Mosquitto MQTT Broker** on port 8883).
