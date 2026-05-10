@@ -32,11 +32,35 @@ When a Virtual Printer is created and started in BamBuddy, it will bind to the f
 
 > **⚠️ Potential conflicts:** These ports are only bound when a Virtual Printer is active in BamBuddy. If another Home Assistant App or service already occupies one of these ports, the Virtual Printer will fail to start. The most common conflict is **port 8883** with the **Mosquitto MQTT Broker** Add-on. Check your running services before enabling a Virtual Printer.
 
+### Certificate Installation (Required for Slicer Connection)
+
+To allow your slicer (Bambu Studio / OrcaSlicer) to trust the Virtual Printer's TLS certificate, you must add BamBuddy's CA certificate to the slicer once.
+
+**1. Locate the certificate in Home Assistant**
+
+Open the **File Editor** and navigate to:
+`addon_configs` → `[slug]_bambuddy` → `data` → `virtual_printer` → `certs` → `bbl_ca.crt`
+
+Copy the entire contents of this file (from `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`).
+
+**2. Add the certificate to your slicer**
+
+| Platform | Path |
+|----------|------|
+| Windows | `C:\Program Files\Bambu Studio\resources\cert\printer.cer` |
+| macOS | `/Applications/BambuStudio.app/Contents/Resources/cert/printer.cer` |
+
+Open the file in a text editor and **append** the copied certificate contents at the very end — after the last `-----END CERTIFICATE-----`. Do not replace existing content.
+
+**3. Fully restart the slicer**
+
+Close the slicer completely and reopen it. The Virtual Printer connection should now succeed.
+
 ---
 
 ## Data Persistence
 
-All data (print archive, settings, logs) is stored persistently in the Home Assistant `/data` directory. Your data is safe across updates and restarts. When uninstalling, Home Assistant will ask whether to remove the app data as well — if you keep it, your data will still be there after a reinstall.
+All data (print archive, settings, logs) is stored persistently in the `addon_configs` directory, which is accessible via the **File Editor** in Home Assistant. Your data is safe across updates and restarts. When uninstalling, Home Assistant will ask whether to remove the app data as well — if you keep it, your data will still be there after a reinstall.
 
 ---
 
