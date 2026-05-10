@@ -101,8 +101,14 @@ As a workaround, Bambuddy can be embedded inside the Home Assistant dashboard us
 **Limitations of this approach:**
 - Works on **LAN only** — not available when accessing HA remotely via HTTPS (Nabu Casa, custom domain, etc.)
 - When accessing HA over HTTPS externally, browsers block HTTP iframes (mixed content policy)
- 
 
+---
+
+### Virtual Printer — Potential Port Conflicts
+
+When using BamBuddy's Virtual Printer feature, several ports will be bound directly on the Home Assistant host. This may conflict with other installed Apps or services (most notably the **Mosquitto MQTT Broker** on port 8883).
+
+For a full list of affected ports and details, see the **Documentation** tab of the respective App.
 
 ---
 
