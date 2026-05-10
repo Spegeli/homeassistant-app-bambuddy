@@ -24,9 +24,5 @@ schema:
   debug: bool
 environment:
   TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
-ports:
-  8000/tcp: 8000
-ports_description:
-  8000/tcp: "HTTP Web Interface"
 webui: http://[HOST]:[PORT:8000]
 watchdog: http://[HOST]:[PORT:8000]/health
