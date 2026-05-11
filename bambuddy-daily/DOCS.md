@@ -1,4 +1,4 @@
-# Bambuddy (Beta) – Documentation
+# Bambuddy (Daily) – Documentation
 
 ## Configuration Options
 
