@@ -17,8 +17,14 @@ homeassistant_api: true
 map:
   - addon_config:rw
 options:
+  trusted_frame_origins:
+    - "http://homeassistant.local:8123"
   debug: false
 schema:
+  trusted_frame_origins:
+    - str
   debug: bool
+environment:
+  TRUSTED_FRAME_ORIGINS: "{{trusted_frame_origins}}"
 webui: http://[HOST]:[PORT:8000]
 watchdog: http://[HOST]:[PORT:8000]/health
