@@ -1,5 +1,5 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
-ARG BAMBUDDY_VERSION=0.2.4.4
+ARG BAMBUDDY_VERSION=0.2.4.5
 
 FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION} AS builder
 FROM ghcr.io/home-assistant/base-python:3.14-alpine3.23
