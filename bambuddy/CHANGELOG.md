@@ -1,262 +1,214 @@
-## 0.2.4.5
+## 0.2.4.6
 
-# Bambuddy 0.2.4.5
+**Bambuddy 0.2.4.6**
 
 **⚠ Upgrade Notes — Read Before Updating**
 
-0.2.4.5 is a substantial patch release on the same 0.2.4 code base — no schema breaks beyond the documented column additions for the new API-key scopes (auto-migrated on first start, dialect-branched for SQLite and Postgres), no Docker entrypoint changes, no Vite/proxy quirks. The in-app Apply Update button in Settings → System → Updates works for Docker and for any native install already on 0.2.4.1 or later.
+0.2.4.6 is a fix-led patch release on the same 0.2.4 code base — no schema breaks beyond auto-migrated column additions (dialect-branched for SQLite and Postgres), no Docker entrypoint changes. The in-app Apply Update button in Settings → System → Updates works for Docker and for any native install already on 0.2.4.1 or later.
 
-**Four behavior-change callouts to know about before you upgrade:**
+Five behavior-change callouts to know about before you upgrade:
 
-- **API-key permission model switched from denylist to allowlist** (security fix). Two new scope flags were added — `can_manage_library` and `can_manage_inventory` — and existing keys that had `can_queue` set are auto-backfilled with both new scopes on first start so library upload and inventory write keep working for keys you'd previously created as "queue-only". A hardened "read-only" key (no `can_queue`) does **not** silently gain new writes on upgrade. Review the Settings → API Keys page after upgrade if you run integrations against specific keys.
+- /api/v1/inventory/spools/{id}/reset-usage renamed to /reset-consumed-counter (breaking for external API consumers). The old name implied the endpoint zeroed weight_used; in practice it only stamps the baseline so the consumed-counter widget reads 0 going forward while remaining weight is preserved. Same for the bulk variant and the Spoolman-mode mirror. No compat shim — the old name actively misled callers. If you scripted against the old path, the migration is a one-line URL swap. Frontend, Bambuddy UI, and SpoolBuddy kiosk all migrated in-tree.
 
-- **External folder mounting is now disabled by default and requires explicit operator opt-in via `BAMBUDDY_EXTERNAL_ROOTS`** (security fix). If you currently use the File Manager → external folder feature (mounting host paths like a NAS share, USB drive, or `/mnt/library`), you **must** set `BAMBUDDY_EXTERNAL_ROOTS=/path/one:/path/two` in your env / `docker-compose.yml` / systemd unit before upgrading, or all mounted external folders will be rejected on next start. The variable takes a colon-separated allowlist of absolute paths; the mount route is also now gated on the admin `SETTINGS_UPDATE` scope rather than `LIBRARY_UPLOAD` because mounting host paths crosses user boundaries. Bambuddy-owned dirs (data dir, log dir, static dir, archive dir) are hardcode-rejected even if added to the allowlist. See [wiki → Docker → External library folders](https://wiki.bambuddy.cool/getting-started/docker/#external-library-folders-bambuddy_external_roots) for examples.
+- Slicer-API sidecar now ships as pre-built images on GHCR + Docker Hub (#1657). The old slicer-api/docker-compose.yml used build: { context: https://github.com/maziggy/orca-slicer-api.git#... } which required git inside the Docker BuildKit worker — Container Station, Synology DSM, and QNAP don't ship it there, so the build failed outright. New compose uses image: ghcr.io/maziggy/orca-slicer-api:${SIDECAR_TAG:-latest}. After pulling this release:
 
-- **Slicer-API sidecar users: bump `BAMBU_VERSION` in `slicer-api/.env` to `02.07.01.57` and rebuild.** If you run the optional OrcaSlicer API sidecar for server-side slicing, the upstream `bambu-studio-api` image switched from the no-longer-published Fedora AppImage to the Ubuntu 22.04 AppImage. The new default in `slicer-api/.env.example` / `slicer-api/docker-compose.yml` matches the new build path. After pulling this release:
-
-  ```
   cd slicer-api
-  docker compose --profile bambu build --no-cache bambu-studio-api
-  docker compose --profile bambu up -d
-  ```
+  docker compose pull
+  docker compose up -d
 
-  Bambuddy users who don't run the slicer-API sidecar are unaffected.
+- No more --no-cache --pull build dance. SIDECAR_TAG env var defaults to latest; pin to bambuddy-X.Y.Z to lock to the sidecar image that shipped with a specific Bambuddy release. Both images are linux/amd64 only; ARM64 hosts (Pi 4/5, Apple Silicon Linux) should run the sidecar on a separate x86_64 box and point Bambuddy at it via the Sidecar URL field.
 
-- **Virtual-printer FTP passive port range widened from 50000–50100 (101 ports) to 50000–51000 (1001 ports)** for the non-proxy path. Docker bridge-mode users mapping the old range need to update to `50000-51000:50000-51000`. Docker host-mode and bare-metal users are unaffected. Proxy-mode VPs keep the old range (they pre-bind the printer-side range exactly).
+- VP MQTT bridge net.info[].ip rewrite: FQDN-configured printers now work without manual reconfiguration (#1429). If you added a printer to Bambuddy by hostname (p1s.fritz.box, a router-provided DNS name, a Tailscale MagicDNS name, etc.) on 0.2.4+, the bridge couldn't rewrite the slicer-facing IP and Send quietly went to the real printer instead of the Bambuddy archive whenever the printer was powered on. After upgrade the bridge resolves the configured hostname to IPv4 at arm time and the rewrite path engages automatically — no UI action required. The unresolvable-input case (typo, dead DNS) is now logged with a specific reason instead of silently no-opping. If you were on the IPv4 workaround you can switch back to hostnames after upgrade.
 
-Make a backup before upgrading via Settings → Backup → Create Backup. Native install with `update.sh` snapshots the database automatically and rolls back on failure. Docker and fully-manual paths don't.
+- VP access codes auto-derived from the target printer in non-proxy modes. A startup migration syncs any pre-existing diverged Queue / Archive / Review VPs to match their target printer's code on first boot, with one INFO log per VP for audit. If the codes had previously diverged and your slicer was failing to connect because of it, that bridge starts working automatically after this upgrade. No user action; you may need to re-add the device in your slicer if the code changed.
 
-### Docker
+- Docker bridge-mode default port mapping narrowed from 50000-51000 (1001 ports) to 50000-50029 (3 VPs worth) by default (#1646). The wide range from 0.2.4.5 spawned ~2000 docker-proxy host processes consuming ~3.5 GB host RAM on the reporter's box. New compose file maps just the slices for the first 3 VPs by default; bridge-mode users with more than 3 VPs widen the mapping by editing the published comment (50000-500N9 where N = vp_count - 1). Host-mode Linux and proxy-mode VPs are unchanged. Per-VP slicing is non-overlapping by design; collisions beyond 100 VPs fall back to the per-session retry the pre-#1646 code already had.
 
-```
-docker compose pull
-docker compose up -d
-```
+Make a backup before upgrading via Settings → Backup → Create Backup. Native install with update.sh snapshots the database automatically and rolls back on failure. Docker and fully-manual paths don't.
 
-`docker-compose.yml` doesn't need refreshing unless you map the VP passive FTP port range (see above) — no other entrypoint, volume, or env-var conventions changed since
- 0.2.4.
+**Docker**
 
-### Native install — recommended path
+  docker compose pull
+  docker compose up -d
 
-```
-sudo BRANCH=main /opt/bambuddy/install/update.sh
-```
+docker-compose.yml doesn't need refreshing unless you map the VP passive FTP port range (see Upgrade Notes above) or you run the slicer-API sidecar (see Upgrade Notes above).
+
+**Native install — recommended path**
+
+  sudo BRANCH=main /opt/bambuddy/install/update.sh
 
 Snapshots the database first and rolls back on failure.
 
-### Native install — manual path
+**Native install — manual path**
 
-```
-sudo systemctl stop bambuddy
-cd /opt/bambuddy
-sudo -u bambuddy git fetch --prune --tags --force origin
-sudo -u bambuddy git checkout main
-sudo -u bambuddy git reset --hard origin/main
-sudo /opt/bambuddy/venv/bin/pip install -r requirements.txt
-sudo systemctl start bambuddy
-```
+  sudo systemctl stop bambuddy
+  cd /opt/bambuddy
+  sudo -u bambuddy git fetch --prune --tags --force origin
+  sudo -u bambuddy git checkout main
+  sudo -u bambuddy git reset --hard origin/main
+  sudo /opt/bambuddy/venv/bin/pip install -r requirements.txt
+  sudo systemctl start bambuddy
 
-### Windows install
+requirements.txt picks up one new optional dependency this release — curl_cffi, used by the firmware-update check to clear Bambu Lab's Cloudflare JA3 challenge (#1666). If the wheel fails to install on your platform Bambuddy falls back to httpx automatically; only the in-app firmware download URL stops resolving and the wiki-based version-detection badge keeps working.
 
-0.2.4.5 ships Windows installer (#1529). Existing installs upgrade in place via the Service / Update entries on the installer; fresh installs use the new GUI installer end-to-end.
+Native install — INSTALL_PATH under /home
 
----
+If your install lives under /home/... rather than the default /opt/bambuddy/, the systemd unit's ProtectHome=true directive previously prevented ExecStart from resolving the venv binary (#1685). The new install.sh detects INSTALL_PATH == /home/* and emits ProtectHome=read-only automatically. Existing /opt/... installs keep the stricter ProtectHome=true.
 
-## Highlights
+**Windows install**
 
-0.2.4.5 is a security-led release. The big-ticket security work — API-key permission allowlist, path-traversal hardening across the upload / import / file-write surface with a fifth CI backstop, a WebSocket auth gate and audit-driven sweep, a vitest dev-dep bump, and a PyJWT floor bump for four upstream advisories — sits alongside a Windows-first installer (#1529), Turkish (#1571) and Korean (#1587) locales, OS-aware system theme detection (#1418), and the second wave of virtual-printer hardening (cipher-pin parity on every slicer-facing TLS context #1610, multi-slicer response routing, MQTT brute-force rate-limit, sticky-keys for seven more fields).
-
-On the fix side, the biggest reports closed in this cycle: multi-plate archives now report filament / time / cost honestly (#1593), card timestamps render in the browser's local timezone instead of UTC (#1602), the multi-run accuracy badge is suppressed when it would be apples-to-oranges (#1608), the cross-distro TLS handshake regression on hardened-policy hosts is fixed at every VP TLS context (#1610), inventory and AMS handling tightened across transparent filament (#1545), profile-only mismatch popups (#1552), per-spool weight sync (#1530 / #1459), the SpoolBuddy tare banner (#1536), and the OIDC `email` claim auto-provisioning gap (#1569). VP `_pending_files` / temp-file leaks, queue-position assignment, DELETE orphan cleanup, sync-from-db race, and slicer-options cache bounds all landed as one slicer-surface audit bundle (#1558) plus follow-ups.
+0.2.4.6 ships the same Windows installer as 0.2.4.5. Existing installs upgrade in place via the Service / Update entries on the installer.
 
 ---
 
-## Security
+**Highlights**
 
-- **API-key permission model rewritten as an allowlist (critical).** The three documented API-key scopes ("Read Status", "Manage Queue", "Control Printer") were enforced only inside the legacy `/api/v1/webhook/*` router; every other route fell through to a 17-entry admin denylist that granted any valid key access to every non-admin endpoint regardless of which scope flags were ticked. Fix: a new explicit mapping pins every non-admin permission to exactly one scope; unmapped permissions return 403 ("administrative operations") regardless of scope. Two new scope flags ship in the same release — `can_manage_library` (gates library upload / update / delete and MakerWorld import) and `can_manage_inventory` (gates inventory create / update / delete and SpoolBuddy kiosk writes). Existing keys with `can_queue` set are auto-backfilled with both new scopes; "read-only" keys don't gain new writes. A new CI test fails the build on any future permission added without a scope classification, so the surface can't silently grow again. See **Upgrade Notes** above for the migration story.
+0.2.4.6 is a reporter-credited fix release on top of the 0.2.4 line. Two big-ticket adds: Orca Cloud profile sync end-to-end — read/list/slice with profiles from your Orca Cloud account alongside the existing Bambu Cloud integration, with four sign-in providers (Google, Apple, GitHub, email+password), a 4-tier preset picker (Orca Cloud → Bambu Cloud → local → standard), and full AMS + SpoolBuddy surface integration — and native CSV import / export for the inventory (#1576, PR #1659 by   @samedyuksel), backed by a 18-column round-trippable schema with formula-injection hardening and a per-row dry-run preview.
 
-- **WebSocket auth gate.** The proactive WebSocket audit caught that `/api/v1/ws` was broadcasting every printer-status / archive / inventory event to anyone who could reach the HTTP port. The endpoint is now auth-gated like the REST surface; events broadcast only to authenticated subscribers.
+The VP surface got another sweep. The hostname/FQDN side of #1429's net.info[].ip rewrite is finally closed (root-caused by @Mape6 — every IPv4 codepath now resolves the configured hostname before parsing). #1548 round 2 fixes the underlying reason OrcaSlicer dropped idle MQTT connections to the VP — the slicer never sends PINGREQ at all, so spec-compliant keep_alive * 1.5 disconnects fired against a slicer that holds idle sessions indefinitely against real Bambu firmware; the fix drops the application-level read timeout in favour of TCP SO_KEEPALIVE for dead-connection detection. #1646's FTP passive-port pool is now per-VP-sliced, dropping bridge-mode host RAM by ~16× on the reporter's single-VP setup. #1658 closes the BambuStudio 2.7.x "Downloading" hang — the slicer flipped the Send sequence to FTP-before-MQTT in 2.7.x, so the set_gcode_state(FINISH) synthesis fired before the real _send_print_response overwrote it back to PREPARE; the fix re-fires FINISH 1.5 s after the synthetic ack.
 
-- **Path-traversal hardening across the upload / import / file-write surface.** A private report against `POST /api/v1/projects/import/file` traced two attacker-controlled strings being joined to the library directory with no resolve + containment check (`linked_folders[*].name` from the request `project.json` and per-entry `zf.namelist()` paths from the ZIP itself). Concrete escalation: drop a `.pth` into the venv's `site-packages` for code execution on next restart, overwrite the JWT signing-secret file to forge an admin token, or overwrite `~/.ssh/authorized_keys` on native installs. Fix is structural: a new `safe_join_under(parent, *parts)` helper resolves both sides and asserts containment; both vectors now route through it. Adjacent fixes in the same audit: `GET /api/v1/archives/{id}/photos/{filename}` had no traversal guard and was serving arbitrary paths; `ArchiveService.attach_timelapse` accepted printer-FTP-listing-supplied filenames with `..` segments under the compromised-printer threat model. The audit sweep marked every Path-arithmetic site under `backend/app/api/routes/` AND `backend/app/services/` with an explicit `# SEC-PATH-OK` annotation or routed it through the helper; a new CI test (the fifth security backstop) AST-walks both directories and fails the build on any future unsafe-shape join that's neither helper-routed nor marker-annotated.
+K-profile + AMS-slot work: #1688 / #1689 (both reported and diagnosed by @Spionkiller01 with H2C testing) fix two related symptoms with one shared root cause — spool preset ids (GFSG98_09) and K-profile filament_ids (GFG98) look different but normalise to the same value, and previously the matchers used name parsing only. The follow-up to #1689 (Spionkiller01's diff, applied verbatim) closes the residual unconfigured-but-loaded slot case where the original cali_idx safety net was unreachable. #1694 surfaces "?" instead of "Empty" on loaded-but-unconfigured AMS slots (matches the slicer's own convention). #1680 fixes the Assign-Spool toast that claimed success on the deferred-configure-on-insert path.
 
-- **External folder mounting restructured to an opt-in allowlist + admin-only scope.** External folder mounting (host paths like a NAS share or USB drive surfaced into Bambuddy's File Manager) was previously gated on `LIBRARY_UPLOAD` (any non-admin user with that scope) and validated against a small denylist of system directories — meaning anything not on the denylist could be mounted, including the Bambuddy data directory containing other users' archives, the log directory, or arbitrary NFS / SMB mounts. The route now requires the admin `SETTINGS_UPDATE` scope and accepts only paths inside the new `BAMBUDDY_EXTERNAL_ROOTS` env-var allowlist. The default empty allowlist disables the feature outright. Bambuddy-owned directories are hardcode-rejected even if the operator adds them to the allowlist. **This is a breaking change for installs that currently use external folder mounting** — see Upgrade Notes above for the restoration path.
+Reliability and dispatch: #1679 fixes the false-cancel-and-duplicate-archive bug when Bambuddy restarts mid-print (the connected-edge reconciliation fired against state.state="unknown" before the printer's first real push_status landed). #1678 fixes the print-queue wedge when a printer accepts project_file but never starts (the watchdog returned success on subtask_id advance alone; new Phase B waits up to 180 s for the active-state transition before reverting). #1697 fixes multi-plate filament over-counting — a 190 g lid from a multi-plate 3MF was getting debited the whole file's 273 g. #1397 closes the long-standing "bed already dropped" finish-photo regression by extracting the last frame of a brief timelapse Bambuddy now force-records on every dispatched print (post-park, pre-bed-drop window) — verified on N=2 H2C prints, bed-slinger field verification welcome.
 
-- **VP MQTT brute-force rate-limit.** Bambuddy's virtual printer exposes an 8-character access code on the slicer-facing MQTT port; without rate-limiting it was brute-forceable by anyone who could reach the VP's bind IP. A new per-IP sliding-window limiter (5 failures / 60 s) now blocks further CONNECTs from a failing IP for the rest of the window; successful auth clears the IP's failure history.
-
-- **VP access codes now compared in constant time.** Both the FTP `PASS` handler and the MQTT CONNECT handler used Python's `==` operator on the 8-character access code. Closes the timing side-channel without changing the protocol surface.
-
-- **VP FTP uploads capped at 4 GiB.** `cmd_STOR` now rejects uploads exceeding 4 GiB, deletes the partial file, and replies 426. Without the cap a runaway or malicious client could drive RSS or disk to exhaustion; 4 GiB is well above any realistic multi-plate `.gcode.3mf`.
-
-- **vitest bumped 3.2.4 → 4.1.8** (development dependency) to pick up an upstream CVSS 9.8 advisory. No production-runtime impact, but the floor moves so fresh installs and CI pick up the fix.
-
-- **PyJWT bumped to >=2.13.0** to pick up four upstream advisories. Audit confirmed Bambuddy's usage is unaffected by every behavioural change in 2.13.0 (HMAC empty-key reject can't trigger, OIDC decode uses raw-key path not PyJWK, `jwks_uri` is HTTPS from discovery, no `b64=false` usage, `enforce_minimum_key_length` not opted into); 229 auth/MFA/OIDC integration tests + 78 auth unit tests pass on 2.13.0; `pip-audit --strict` is clean.
-
-- **Trivy DS-0026 silenced on `Dockerfile.test` via `HEALTHCHECK NONE`.** The test image runs `pytest` and exits — no service to probe. Adding a healthcheck would have b
-een cargo-cult noise.
+Cloud / auth: #1666 routes the Bambu Lab firmware-download fetch through curl_cffi to clear the Cloudflare JA3 challenge that started 403-ing plain Python TLS — the HTTP-layer User-Agent stays Bambuddy/1.0 honest per the 2026-05-12 compliance commitment, only the TLS handshake bytes match Chrome (pinned by a test that fails the build if the UA override is ever dropped). #1698 fixes the silently-zombie tabs after JWT expiry — setAuthToken(null) from the API client wasn't reaching AuthContext.user, so ProtectedRoute kept rendering with no token and every subsequent request 401'd silently. Fix (mirrored from @TCL987's working fork patch) dispatches an auth:expired event the AuthContext listens to.
 
 ---
+**New Features**
 
-## New Features
+- Orca Cloud profile sync — end-to-end (slicer + AMS + SpoolBuddy). Bambuddy now reads, lists, and slices with profiles from your Orca Cloud account alongside the existing Bambu Cloud integration. OrcaSlicer 2.4.0-alpha shipped its own Supabase-backed cloud (auth.orcaslicer.com / api.orcaslicer.com); this integrates using a standard PKCE handshake. Four sign-in providers: Google, Apple, GitHub (paste-flow PKCE, since Orca's Supabase project only allowlists localhost for redirect_to), and email+password (direct grant). UI: the Cloud Profiles tab is now two — "Bambu Cloud" (existing, unchanged) and "Orca Cloud" (new, same rich layout). Slicer integration surfaces Orca Cloud as the top tier in a 4-tier preset picker (Orca Cloud → Bambu Cloud → local → standard); AMS slot configuration accepts orca_cloud as a 4th preset   source; SpoolBuddy modal fetches Bambu + Orca filaments in parallel via Promise.allSettled. Persistent storage: 5 new columns on users (token / refresh / expiry / provider / email) plus 3 transient PKCE state columns with 10-min TTL, dialect-branched for SQLite and Postgres. Auth-disabled mode falls back to the global Settings table. Refresh tokens are single-use (Supabase behaviour) and rotated just-in-time with <5 min leeway; new pair persisted before the downstream call so a mid-flight crash doesn't strand the user. New explicit orca_cloud:auth permission flag folded into the existing can_access_cloud API-key scope. Filed OrcaSlicer/OrcaSlicer#14028 upstream to widen the redirect_to allowlist so future Bambuddy versions can ship clean OAuth instead of paste-flow. 32 backend unit + 6 preset-resolver + 6 sidecar-fetch + 6 frontend tests; ~35 new i18n keys translated across all 10 non-English locales.
 
-- **Windows installer (#1529, contributed by @vmhomelab).** Installer for Windows hosts — fresh install, service install / uninstall, in-place update, and a Troubleshooting entry. Existing native Windows users can upgrade via the Update entry on the installer.
+- Native CSV import / export for the inventory (#1576, PR #1659 by @samedyuksel). Bulk-add spools without manually clicking through the form, and back up / migrate the local inventory in a single round-trip. Export downloads bambuddy-spools-YYYY-MM-DD.csv with one row per active spool; Import shows a per-row preview classifying each row as valid / error / skipped / duplicate-warn before anything hits the database, then a confirm click persists only the valid rows in one transaction. Fixed 18-column schema includes weight_used / last_used / storage_location / category / low_stock_threshold_pct for a lossless round-trip. Colour resolution: explicit rgba wins, otherwise brand + color_name resolves against the Color Catalog in a single in-memory pass. Hardening: 5 MB upload cap with bounded 64 KB chunked read (handles chunked uploads where file.size is None), spreadsheet formula-injection guard on export with the inverse strip on import for lossless round-trip, soft duplicate-warn flag when an active spool with the same material+brand+color exists. Local inventory only — in Spoolman mode the buttons render disabled with a tooltip pointing at Spoolman's own   CSV import/export. 25 backend integration tests + 3 frontend modal tests; full i18n in all 11 locales. Companion wiki PR maziggy/bambuddy-wiki#41.
 
-- **Turkish (`tr`) locale (#1571, contributed by @samedyuksel).** Full Turkish translation across all keys, joining the existing 9-locale set.
+- Archives page banner: reactive install-step-4 nudge for the slicer-side "Store sent files on external storage" setting. Companion to the new external_storage diagnostic check (below) — catches the slicer-side variant of the same setting that never reaches the printer on older BambuStudio / OrcaSlicer. New GET /archives/no-3mf-warning endpoint returns true iff any archive in the last 30 days has extra_data.no_3mf_available=True and isn't soft-deleted; banner is amber, dismissible, and one-shot via localStorage (persistent across browser restarts — "you've been told" should outlive a session). 5 backend integration tests; 4 i18n keys in all 11 locales.
 
-- **Korean (`ko`) locale (#1587, contributed by @hijae).** Full Korean translation across all keys.
+- Connection diagnostic now verifies install step 4 ("Store sent files on external storage"). Many users miss this setting when adding their first printer; without it BambuStudio / OrcaSlicer never leave a .gcode.3mf on the printer's SD card, every archive falls back to no-thumbnail / no-metadata, and the cause is invisible. New external_storage check reads state.store_to_sdcard (the MQTT home_flag bit 11 Bambuddy already parses). Pass when the printer reports the bit on, fail when off, skip when no live state or the field has never been populated. Slot in the check list sits between port_ftps and mqtt_auth. The skip text explicitly calls out the older-slicer limitation so users on that path know to verify manually. Wiki updated on the System and Troubleshooting pages.
 
-- **System theme detection — sidebar toggle and Settings selector follow the OS dark/light preference (#1418, contributed by @TempleClause via PR #1501).** `ThemeMode` gains a third value `system` alongside `dark` and `light`. The provider listens to `window.matchMedia('(prefers-color-scheme: dark)')` and tracks the OS preference in real time. The sidebar toggle now cycles `dark → light → system → dark` with the icon hinting at the next stop; Settings → Appearance gained a 3-button Dark / Light / System selector. Existing users' persisted preference is untouched — anyone on `dark` or `light` stays there and simply gains an extra stop in the cycle.
+- Connection diagnostic now verifies the printer is publishing on its report topic (#1622). A printer with a wrong-cased serial — or one that isn't publishing for any reason — would previously pass mqtt_auth because the broker accepts the subscription regardless. User-visible symptom was "AMS / K-profiles / custom filaments missing on the slicer side". New printer_publishing check turns the existing log warning into a structured diagnostic result. Bounded 10 s polling at 0.5 s intervals; exits the moment a message arrives, with an elapsed-seconds counter on the modal so the spinner doesn't look hung. The support-package gathering path stays fast (instant pass/fail, no wait).
 
-- **MQTT auth rate-limit on the virtual printer.** Per-IP sliding-window limiter (5 failures / 60 s) on VP MQTT CONNECT, brute-force-resistant. See Security section above for the full description.
+- "Open in Slicer" desktop target is now configurable separately from the API sidecar slicer (#1329, reported by @hasmar04). Reporter wanted to slice via the Bambu Studio sidecar but open files locally in OrcaSlicer; the existing preferred_slicer setting drove both, so picking one forced the other. New open_in_slicer setting ('bambu_studio' | 'orcaslicer' | null) drives only the desktop "Open in Slicer" URI handoff. Default is null — existing installs fall back to preferred_slicer and behave identically until a user changes it. Five call sites across ArchivesPage, MakerworldPage, ModelViewerModal migrated. MakerWorld's "Slice in {{slicer}}" button label additionally branches on useSlicerApi so the text always matches what the button does.
 
-- **Per-slicer MQTT response routing for multi-slicer VP setups.** Pre-fix: when slicer A sent a bridge-forwarded command to a non-proxy VP bound to a target printer, the printer's response was fanned out to every connected slicer. Now responses are routed to the originating slicer only, falling back to broadcast for printer-initiated unsolicited pushes (push_status etc.) and for sequence_ids the routing map never saw. Bounded at 256 entries with FIFO eviction.
+- Queue items + Print modal now show the build plate type, per-plate accurate (#1281, reported by @CMW-ISS). Multi-printer farms with 40+ plate runs need to know which physical plate each queued job needs. New extract_bed_type_from_3mf(file_path, plate_id) helper alongside the existing filament-usage extractor; PrintQueueItemResponse gains bed_type; the /archives/{id}/plates (and library equivalent) include per-plate bed_type for the modal's plate selector. Per-plate accuracy matters because the archive-level capture stores only the first plate's value — a 40-plate 3MF mixing PEI + Engineering returns "PEI" for every plate at the archive level, but plate 17 may actually need Engineering. 8 unit cases on the extractor.
 
-- **VP child-service readiness barrier.** Each VP child sub-service (FTP, MQTT, Bind, SSDP) now exposes a `ready` event that fires after the socket actually binds; `start_server` awaits all of them with a bounded 5 s timeout. Closes a race where `is_running` reported true while the child sockets were still binding, which a quick poll from the diagnostic route or the VP card could observe.
+- Print Log page: per-row delete (#1687 part 1, reported by @IndividualGhost1905). Every row in Archives → Print Log now has a trash icon next to the filament cell, gated on archives:delete_own / archives:delete_all. Filament / time / cost contribution drops out of Quick Stats in the same response cycle (stats aggregate over PrintLogEntry). The matching archive (if any) stays untouched — the log row is a sibling, not a child.
 
----
+- Print Log page: per-row failure-cause classification (#1687 part 4, reported by @IndividualGhost1905). Reporter clarified after part 1 shipped that what he actually wanted for failure-cause grouping on the log (spaghetti, jam, bed-adhesion, etc.) was different from archive tags (which describe the model). The storage and aggregation were already there; the gaps were the GET serialiser silently dropping failure_reason from PrintLogEntrySchema, and orphan log entries (no archive —
+  dispatch errors, aborts, manual entries) having no edit path. New PATCH /print-log/{entry_id}, vocabulary validated against the same 11-key canonical set the Archive Edit modal uses. Pencil icon beside the trash icon; modal saves invalidate both print-log and archives-stats query keys.
 
-## Changes
+- Add Printer: scan a custom subnet for printers behind a router on a different L3 segment (#1564, reported by @MartinNYHC, root-caused by @IndividualGhost1905). SSDP multicast (239.255.255.250:2021) doesn't traverse routers, so the existing Discover pass couldn't find printers on a different subnet. New "Custom subnet..." sentinel in the AddPrinterModal picker reveals a CIDR text input. When custom is picked, discovery routes through POST /discovery/scan with the typed CIDR (which already does the unicast probe). Last custom CIDR persisted to localStorage. No backend changes — SubnetScanner.scan_subnet() already caps at /22 (1024 hosts) with batch-50 concurrency.
 
-- **Bug-report template tightened + new Area dropdown.** 170 issues have been closed `invalid` (61 of them in the last 30 days alone — roughly 1 in 5 of all closed issues), nearly always because the reporter hadn't run the in-app diagnostics or checked the documented troubleshooting page. The Connection Diagnostic checkbox, Support Package attachment, and a new "Troubleshooting steps already taken" textarea are now required. The old `Bambuddy / SpoolBuddy / Both` dropdown is replaced with two required dropdowns — `Product` and `Area` (15 options covering the actual feature surface) — and an auto-label workflow applies the matching `area:*` label on every issue open/edit.
-
-- **VP virtual-printer FTP server streams uploads straight to disk instead of buffering.** Pre-fix: `cmd_STOR` accumulated every chunk in a list and called `write_bytes` at the end. Peak RSS for a multi-GB `.gcode.3mf` was ~2× the file size and could OOM-kill a low-memory host. The streaming rewrite writes each 64 KiB chunk inline as it arrives, bounding peak memory at one chunk regardless of total upload size. Same change adds the 4 GiB hard cap described above.
-
-- **VP virtual-printer FTP passive port range widened from 50000–50100 to 50000–51000.** Docker bridge-mode users mapping the old range need to update — see Upgrade Notes above.
-
-- **VP MQTT bridge sticky-keys: 7 more fields preserved across incremental pushes.** Pre-fix: a single 1 Hz incremental push (which only carries changed temps / fan / wifi_signal) wiped any field not in the sticky-keys allowlist. The cached state lost `upgrade_state`, `xcam`, `hw_switch_state`, `nozzle_diameter`, `nozzle_type`, `online`, and `ams_status` after a single tick — BambuStudio's Send pre-flight reads several of these and could refuse Send because the cached push said "unknown firmware state". Same shape as #1228 (storage indicators) and #1558 (live-progress fields). Sticky-keys carry-forward is now also a `copy.deepcopy` (was reference) so a future merge can't corrupt both copies.
-
-- **VP target-printer DHCP IP / serial refresh now restarts proxy VPs.** Pre-fix: when a target printer's IP changed (DHCP renewal, network reconfiguration), the running proxy VP kept forwarding to the stale IP forever; the user had to manually toggle the VP to refresh. `sync_from_db` now re-evaluates the proxy target each cycle and restarts the VP when the IP or serial actually changes.
-
-- **VP `queue_force_color_match` setting takes effect immediately.** Pre-fix: toggling the per-VP "Force exact color match" setting via the UI silently no-op'd because `sync_from_db`'s "changed" predicate didn't include the field. Now restarts the running instance on toggle.
-
-- **VP MQTT client session errors elevated from DEBUG to WARNING.** Production never sees the message at DEBUG; legitimate slicer-side errors (TLS handshake failure, protocol violation) deserve to be visible in the default log level.
-
-- **VP MQTT periodic status push: one-line per-minute counter per active slicer connection (#1548 follow-up).** Replaces the noisy per-tick log line with a single per-minute summary, while still surfacing connection-drop events at WARNING.
+- VP MQTT bridge surfaces why net.info[].ip rewrite didn't arm (#1429 defensive). The bridge had 4 silent early-return paths in _refresh_ip_encoding. When the rewrite silently no-op'd, the only signal was the absence of the armed INFO line. Each path now emits one specific-reason INFO line, throttled by a dedup field so an idle unarmed bridge doesn't spam at 30 s tick. This is exactly the surface that pinpointed #1429's hostname/FQDN root cause on the reporter's bundle.
 
 ---
+**Changes**
 
-## Fixed
+- Slicer-API sidecar ships as pre-built images on GHCR + Docker Hub (#1657, reported by @d3nn3s08). Removes the build-from-source git dependency that broke installs on QNAP, Synology DSM, and Container Station. See Upgrade Notes for the new docker compose pull workflow.
 
-**UI / rendering**
+- VP access code is now auto-derived from the target printer in non-proxy modes (Discord report). With the live target-printer mirror that landed earlier in the 0.2.5 cycle forwarding slicer auth bytes through to the real printer, the slicer's stored code has to clear both checks (VP listener + real printer). If the codes diverged the bridge silently failed at the second hop. The fix removes the foot-gun: when a target printer is selected, the VP card's access-code field becomes read-only with an
+  Eye-toggle reveal showing the target's code. One-shot startup migration syncs any pre-existing diverged VPs with one INFO log per VP. Wiki corrected (previously framed code-match as a camera-only concern — wrong, all bridged protocols inherit).
 
-- Print-run log, spool usage history, camera-token list, and SpoolBuddy device "last calibrated" timestamps now render in the browser's local timezone instead of UTC (#1602, reported by @maziggy, confirmed by @IndividualGhost1905 with a UTC+3 reproduction). Same shape as the #504 timezone-offset bug — four sites the #504 sweep didn't catch because they were added afterwards or were missed.
+- File Manager sidebar: "All Files" now scopes to your own uploaded files; new "External" entry holds the combined linked-folder view (#1621, reported by @kcw96). Restores the pre-external semantics so long-time users get their muscle memory back. The combined "everything across every external mount" view moves to a sibling sidebar entry that only renders when at least one external folder is linked (zero-cost on installs without the feature). New internal_only / external_only query flags
+  on /api/v1/library/files. Empty-state copy distinguishes "no internal files yet" from "no external files" so a user staring at an empty External view doesn't think their NAS is broken.
 
-- Archive card's Print Time + accuracy badge are now consistent for multi-run / multi-plate archives (#1608). The card was showing one run's actual duration next to a whole-file estimate, producing badges like "+188%". Multi-run archives now show "Estimated 5h 6m" with no badge; single-run archives keep the badge.
+- Empty AMS units no longer trigger hourly humidity / temperature notifications (#1619). The hourly recorder fanned out alarms for every AMS unit above threshold without checking whether the unit was actually loaded. New _ams_has_filament() helper inspects the firmware-reported tray_exist_bits bitmap (with a fallback to the tray array's tray_type strings for early-pushall shapes). Sensor history still records regardless of the gate so the System page humidity / temperature charts stay continuous — only the outbound notification is suppressed.
 
-- Cancelled prints have their own stats bucket and no longer drag down the Success Rate gauge (#1390 follow-up).
+- Inventory: /reset-usage renamed to /reset-consumed-counter; UI label is now "Reset counter". Old name implied the endpoint zeroed weight_used; in practice it only stamps the baseline. See Upgrade Notes for the breaking-change scope. Behaviour is unchanged in both internal and Spoolman modes — only the path and the UI label moved.
 
-- Cancelled bucket icon now uses the semantic warning token (orange) instead of an unrelated palette colour (#1390 follow-up).
+- docker-compose.yml: bridge-mode warning about the FTP passive range + docker-proxy RAM footprint (#1646, reported by @TheFou). Default port mapping narrowed from 50000-51000 (1001 ports / ~3.5 GB RSS in bridge mode) to 50000-50029 (3 VPs). Comment explains how to widen for more VPs. See Upgrade Notes.
 
-- Quick Stats: user-cancelled prints now have their own bucket and no longer drag down the Success Rate gauge (#1390 follow-up, reported by @IndividualGhost1905).
-
-**Slicer / library**
-
-- Sliced `.gcode.3mf` files now render in the 3D preview and expose a Preview-3D action in the file row (#1543, reported by @Vlado-Tarakan).
-
-- External-folder `.gcode.3mf` files now show thumbnails, and every ingest path stores the same canonical `file_type` for sliced outputs (#1600, reported by @maziggy).
-
-- Deleted local profiles no longer linger in the SliceModal preset dropdown; new manual "Refresh" button surfaces cloud-side deletions without waiting for the 5-minute cache (#1581, reported by @lloydcat).
-
-- STL thumbnail noise on first generation: matplotlib cache + font_manager scan no longer log three WARNING lines on first STL upload (reported by @maziggy).
-
-- Bulk-upload ZIPs of stub / empty STL files no longer spam the log with thousands of warnings (reported by @maziggy).
-
-- Print filenames with FAT32-illegal characters now rejected at rename / upload / queue time instead of failing at FTP (#1540, reported by @anthonyma94).
-
-**Archive / stats**
-
-- Multi-plate `.gcode.3mf` archives and reprints no longer under-report filament, time, and cost — project stats and parser both fixed (#1593, reported by @needo37). 3-plate file printed plate-by-plate over 9 runs was showing 1/9th of the real material consumption.
-
-- Source-3MF upload on "fallback" archives no longer crashes with HTTP 500 (and stops orphaning files outside the data volume) (#1531, reported by @d3nn3s08).
-
-- Fallback archives now carry MQTT-derived filament type + colour when the 3MF can't be downloaded (#1533, reported by @JmanB52D), plus a follow-up fix for real prints (#1533 follow-up).
-
-**Inventory / Spoolman**
-
-- Transparent / clear filament now selectable and rendered as transparent end-to-end in the built-in inventory (#1545, reported by @Synec5, confirmed by @CMW-ISS).
-
-- Assigning a spool no longer shows a profile-mismatch warning when only the slicer profile differs; the warning now states the AMS slot will be reconfigured (#1552, reported by @anthonyma94).
-
-- External-spool usage is now tracked when the AMS has empty slots in between loaded ones (#1607, reported by @ahmtcnby).
-
-- SpoolBuddy weight sync no longer silently lands on a stale local row when Spoolman is enabled (#1530, reported by @chesterakl).
-
-- SpoolBuddy Tare status banner no longer sits at "Waiting for device..." forever (#1536, reported by @flom89).
-
-**Virtual printer**
-
-- Queue / Review / Archive virtual-printer modes now complete the TLS handshake on hardened-distro hosts (#1610). Real Bambu printers offer only the plain-RSA AES-GCM suites `AES256-GCM-SHA384` / `AES128-GCM-SHA256`; a system crypto policy that strips them left the slicer's ClientHello with no overlap. The #620 cipher-suite fix only patched the printer-facing context; this release patches every slicer-facing VP TLS context (bind / MQTT / proxy-server / FTP).
-
-- VP "Send file" IP rewrite now also fires for VPs without a dedicated bind IP (#1429 follow-up, residual case confirmed by @Mape6).
-
-- VP "Send file" no longer redirects from Bambuddy to the physical printer's SD card once the printer powers on, and the mode button labels now match the wire values stored in the DB (#1429).
-
-- VP queue mode no longer blocks BambuStudio Send while the target printer is mid-print (#1558, reported by @phieb).
-
-- VP `_pending_files` / temp-file leak fixed on every error path across the three file handlers.
-
-- VP queue position now picks `MAX(position)+1` instead of hardcoded `1`; duplicate position=1 entries no longer pile up on non-empty queues.
-
-- VP DELETE route now cleans orphan `PendingUpload` rows and the on-disk `upload_dir`; previously these accumulated.
-
-- VP `MQTTBridge._refresh_loop` no longer leaks the raw_message_handler on exceptions in the IP-encoding branch.
-
-- VP `sync_from_db` serialised by `asyncio.Lock`; concurrent PUT calls (browser racing the auto-save trigger) no longer race the inner start/stop.
-
-- VP `_slicer_print_options` cache bounded at 128 entries with FIFO eviction.
-
-- VP MQTT bridge sticky-key carry-forward now uses `copy.deepcopy`; a sticky key carried over from the previous cache no longer shares nested dicts with the next push.
-
-- VP MQTT no longer drops idle slicer connections at exactly 60 s (#1548, reported by @hollajandro); honours client-negotiated keepalive instead of the hardcoded 60 s.
-
-- VP diagnostic now probes both bind ports 3000 (plain) and 3002 (TLS).
-
-- VP FTP `stop()` now awaits cancelled sessions instead of `sleep(0.1)`; a session mid-write or mid-TLS-handshake can no longer outlive the stop call.
-
-- VP per-VP TLS certificate auto-regenerates when the shared CA is rotated.
-
-- VP `tailscale.py::get_status` now catches `asyncio.TimeoutError`; a stuck Tailscale subprocess no longer surfaces an uncaught exception.
-
-- VP `certificate.py` CA save uses correct parent directory; previously the CA write could fail because only the per-VP subdirectory had been created.
-
-- VP `_extract_plate_id` failures now log at debug instead of swallowing silently; a malformed `Metadata/slice_info.config` is now traceable.
-
-**Dispatch / prints**
-
-- A1 no longer auto-replays the previous print after a power cycle when the library row's filename has a doubled `.gcode.3mf` (#1542). The dispatch SD-cleanup path now aligns with the upload path; doubled-extension library rows no longer leave ghost prints.
-
-- Connected-edge reconciliation closes the missed-PRINT-COMPLETE loop that produced ghost replays on smart-plug power cycles (#1542 follow-up, reported by @vixussrl-ui).
-
-- Paused prints no longer inflate maintenance hours (#1521, reported by @TempleClause). `track_printer_runtime` was counting both RUNNING and PAUSE states.
-
-- Webhook printer-status / stop / cancel routes 500'd on every connected printer because the route treated the `PrinterState` dataclass as a dict (#1584).
-
-**Cloud / auth**
-
-- Bambu Cloud sign-in failures caused by an upstream Cloudflare challenge now surface an actionable message instead of "Invalid response from Bambu Cloud" (#1575, reported by @cliveflint).
-
-- OIDC auto-provisioning now reads the standard `email` claim for `User.email` when `Email Claim` is set to a non-email identity claim (#1569, reported by @anderl1969).
-
-**Notifications**
-
-- ntfy notifications: honest User-Agent + actionable error when the server is behind a Cloudflare challenge (#1534, reported by @apizz). User-Agent is now `Bambuddy/<version>` instead of the bare httpx default.
-
-**Maintenance**
-
-- Custom maintenance type "documentation URL" now persists on create (#1596, reported by @BurntOutHylian — with the exact root cause pre-triaged in the issue body).
-
-**Internal / CI**
-
-- Path-traversal CI backstop now recognises markers on the closing-paren line (project-wide convention).
-
-- Backend test sharded 4-way + `-n auto` for ~3.5× wall-clock speedup in CI; pip cache mount in the test image.
-
-- Unit tests no longer re-run inside the test image (duplicated the parent CI job).
-
-- Trivy DS-0026 silenced on `Dockerfile.test` via `HEALTHCHECK NONE` (see Security).
+- AMS drying now enabled for H2C starting at firmware 01.02.00.00. Moved from _DRYING_UNSUPPORTED_MODELS to _DRYING_MIN_FIRMWARE with the same 01.02.00.00 floor as H2S / P2S. Both SSDP model codes the H2C advertises (O1C, O1C2) get the same gate.
 
 ---
+**Fixed**
 
-## Credits
+  **UI / rendering**
 
-External contributors this release: @TempleClause (#1418 / PR #1501 system theme detection), @vmhomelab (PR #1529 Windows installer), @samedyuksel (PR #1571 Turkish locale), and @hijae (PR #1587 Korean locale). 
+- AMS drying popover's "Start Drying" button no longer hidden behind iOS Safari's bottom URL bar on iPhone (#1669). Popover sizing switched from 100vh → 100dvh; popoverPosition now defaults viewportHeight from window.visualViewport?.height so the flip-above decision uses the actually-visible area.
+
+- Project edit modal couldn't be scrolled on short screens, so Save / Cancel were unreachable (#1642, reported by @klevin92). Standard flex-modal-scroll fix: max-h-[calc(100vh-2rem)] + sticky footer with border-t separator.
+
+- Label printing produced two identical PDFs per click (#1628). window.open(url, '_blank', 'noopener,noreferrer') returns null even on success — the fallback <a download> click fired on every click. Dropped noopener,noreferrer (same-origin blob URL, passive PDF preview, no script context).
+
+- Service-worker activate handler no longer hangs first-install browsers (demo-site stuck spinner + Firefox Corrupted-Content). The forced client.navigate(client.url) added for kiosk-reload-on-deploy fired on every fresh origin, not just upgrades. Reload logic moved from sw.js to sw-register.js gated on hadController = !!navigator.serviceWorker.controller captured at script load — only fires when a previous SW was controlling the document.
+
+  **Inventory / AMS**
+
+- K-profile matching now prefers filament_id over parsed names — surfaces custom profiles in the spool form AND fixes Configure Slot showing "default 0.020" for an actively-bound K-profile (#1688 + #1689, both reported and diagnosed by @Spionkiller01 with H2C testing; #1689 also reported by @IndividualGhost1905). Spool preset ids (GFSG98_09) and K-profile filament_ids (GFG98) normalise to the same value via the new toFilamentId helper (drops _NN variant suffix, strips the S in GFS); generic GFx99 ids excluded from id-match so they don't over-match. Both surfaces — isMatchingCalibration (PA profile suggester) and matchingKProfiles (AMS slot modal) — switched to id-match-first with name fallback. SpoolBuddy kiosk surfaces inherit via shared components.
+
+- Configure Slot now keeps the active K-profile on reopen for assigned-but-unconfigured slots (#1689 follow-up, reported and patched by @Spionkiller01). Residual case where the original cali_idx safety net was unreachable because selectedPresetInfo was null for slots with tray_type="" / no slot_preset_mappings row. Fix is Spionkiller01's diff verbatim with the existing extruder guard.
+
+- AMS slots with a spool loaded but no material configured now show "?" instead of "Empty" (#1694, reported by @kleinwareio). Compact label below the slot circle was rendering tray.tray_type || "Empty", falling back to Empty whenever the firmware hadn't been told which material is in the slot. New branch on getEmptySlotKind matches the slicer's own convention. SpoolBuddy kiosk's AmsUnitCard carried the same bug and got the same fix.
+
+- "Assign Spool" no longer claims the AMS slot was configured when it wasn't (#1680, reported by @kleinwareio). Backend defers the ams_filament_setting MQTT publish for empty slots (Bambu firmware drops the push) and stores the assignment with pending_config=true; the toast was always "Spool assigned and AMS slot configured" regardless. Fix branches on pending_config and surfaces a new "Assigned. Slot will configure when you insert the spool." message.
+
+- Home-page filament assign no longer leaves the slicer unaware of PFCN cloud presets (#1648, reported by @ferch-G). Polymaker's "(Custom)" Bambu Lab H2D variants use PFCN... preset IDs (alongside GFS... and PFUS...); the cloud-detail lookup branch in apply_spool_to_slot_via_mqtt only routed the first two prefixes. Fix extends the cloud-detail-lookup branch + the discard safety net to include PFCN.
+
+- Bambu cloud A1 Mini filament / process profiles no longer hidden in AMS slot picker (#1649, root-caused by @technopaw). Bambu shifted the @BBL suffix from A1 Mini to A1M across 106 cloud profiles mid-2026; Bambuddy's filter compared the token verbatim against the display name. New PRINTER_MODEL_SUFFIX_ALIASES table holds the bidirectional A1 Mini ⇄ A1M mapping. Same helper covers SliceModal Process/Filament compatibility. Aliases narrow on purpose — wide-net aliasing like X1 ⇄ X1C would silently group truly distinct printers.
+
+  **Archive / stats / metadata**
+
+- Filament usage no longer over-counts when printing one plate from a multi-plate 3MF (#1697, reported by @volodymyr-doba). Reporter printed a single 190 g lid from a 5-box+5-lid file and got debited for the whole file's 273 g. Two completion-time recorders (internal _track_from_3mf and store_print_data for Spoolman mode) called the extractor with no plate_id and summed every plate. Fix threads plate_id end-to-end via a new PrintSession.plate_id field captured from on_print_start + a parallel _print_plate_ids dict for the direct-Print path (which bypasses the queue). 9 new tests across test_usage_tracker.py, test_spoolman_tracking.py, and test_print_start_expected_promotion.py.
+
+- VP archive/queue names with & no longer render as &amp;amp; (#1658 follow-up, reported by @IndividualGhost1905). ThreeMFParser._parse_3dmodel was parsing <metadata> payloads without html.unescape(); raw &amp; landed in the DB and React re-escaped on render. Fix applies the same loop-until-stable unescape pattern the sibling ProjectPageParser already had. Same drop: tooltip rewritten in all 11 locales to spell out the BambuStudio 2.7.x reality that BS unconditionally overwrites the user-typed Send-dialog name with the slugified 3MF Title field — there's no MQTT field carrying the original.
+
+- Finish photo no longer shows the bed already dropped (#1397, reported by @rtadams89, @Jeff-GebhartCA, @MA2ZAK). Bambu's end-gcode lowers the build plate at print completion; capturing at gcode_state=FINISH showed the print well below the camera's natural framing. Fix sources the photo from a brief Bambu timelapse Bambuddy now force-records on every dispatched print — firmware stops recording AFTER the toolhead parks but BEFORE the bed-drop end-gcode runs, so the last frame frames the finished print correctly. BackgroundDispatchService overrides timelapse=True on the MQTT command + marks PrintArchive.bambuddy_forced_timelapse; new extract_video_last_frame ffmpeg helper extracts the last frame; _cleanup_forced_timelapse deletes both the locally-attached file and the on-printer copy when the user didn't ask for one. Verified on N=2 H2C prints; bed-slinger field verification welcome. Round-2 fix in the same drop: extractor switched from -sseof -1.0 to -update 1 (frame-per-layer recording produces sub-second videos on small prints, where the 1-second seek-from-end went before the start of the file); resolver wired into print_scheduler.py so queue-dispatched prints get the override too (not just background_dispatch.py).
+
+  **Virtual printer**
+
+- VP MQTT no longer disconnects idle OrcaSlicer at keep_alive * 1.5 (#1548 round 2, reported by @hollajandro). Round 1 shipped the MQTT §4.4-compliant idle disconnect; the reporter's follow-up pcap proved the spec compliance was itself the regression — OrcaSlicer sends zero MQTT packets after the initial burst (no PINGREQ), so any spec-compliant server disconnects. Real Bambu firmware doesn't enforce §4.4 (verified against the reporter's identical Orca install holding idle sessions against real hardware on the same network). Fix drops the application-level read timeout after CONNECT/auth and sets SO_KEEPALIVE on the underlying socket so the OS TCP stack detects truly dead connections.
+
+- VP MQTT bridge net.info[].ip rewrite never armed when the printer was added by hostname/FQDN (#1429, root-caused by @Mape6, also hit @TrickShotMLG02). _ip_to_uint32_le and the host-interface picker both assume dotted-quad IPv4 and bailed on the FQDN string. New _resolve_target_to_ipv4 resolves via socket.getaddrinfo(target, None, family=socket.AF_INET) (IPv4-only filter — the net.info[*].ip field is uint32 LE). Returns None on transient DNS hiccups so the encoding doesn't break permanently. The configured FQDN is preserved into the armed log line as configured→resolved so a bad-DNS regression stays legible.
+
+- FTP passive-port pool now sliced per-VP (10 ports each) so bridge-mode Docker drops from ~3.5 GB to ~210 MB host RAM (#1646, reported by @TheFou). Reporter measured 2002 docker-proxy host processes from the 1001-port range. Class-level PASSIVE_PORT_MIN/MAX constants are gone; new module-level compute_passive_port_slice(vp_id) returns a 10-port window allocated by VP id. Result for the reporter (single VP): ~70 MB instead of ~3.5 GB. Wrap-around behaviour at 100 VPs falls back to the per-session retry the pre-#1646 code already had. Docs corrected in the same drop (userland-proxy: false framing tightened).
+
+- VP Queue / Archive / Review: Bambu Studio 2.7.x stayed stuck at "Downloading" after Send (#1658, reported by @IndividualGhost1905). BambuStudio 2.7.x flipped the Send sequence to verify_job → .3mf → project_file, so on_file_received's set_gcode_state("FINISH") fired first and the synthetic _send_print_response ack overwrote it back to PREPARE. The slicer waited for a FINISH transition it'd never see. Fix re-fires set_gcode_state(FINISH) from  on_print_command 1.5 s after the synthetic ack, for every non-proxy mode. Proxy mode is exempt — there the real printer drives bridge state.
+
+- VP settings card now shows the target printer's serial in proxy mode. Runtime services (SSDP, MQTT bind identity, certificate subject) all use the target printer's actual serial; _vp_to_dict always returned the self-generated suffix-based serial, breaking the visual "one identity per VP" mental model. Fix queries the target's serial when vp.mode == proxy and target_printer_id; falls back to the self-generated serial when the target row is missing (printer deleted, race) so the card still renders.
+
+  **Print queue / dispatch**
+
+- Restarting Bambuddy mid-print no longer marks the live archive as "cancelled / aborted" + duplicates it + double-counts filament (#1679, reported by @IndividualGhost1905, corroborated by @Arn0uDz on watchtower-driven restarts). On startup, _on_connect broadcast on_state_change(self.state) immediately after the broker accepted the connection — BEFORE _request_push_all round-tripped real status. The reconcile saw state.state="unknown" + state.subtask_name="" and synthesised an aborted PRINT COMPLETE for every in-flight archive. When the real PRINT COMPLETE arrived, _active_prints didn't have the entry, so a brand-new archive row was created. Fix: two-layer guard — on_printer_status_change now gates reconcile spawn on state.state being a real value (parsed firmware enum); _is_active_archive_stale returns (False, "") when state.state is empty / "unknown" / None.
+
+- Print queue no longer wedges in "Currently Printing" when a printer accepts project_file but never starts (#1678, reported by @kleinwareio). The _watchdog_print_start returned success as soon as subtask_id advanced — added for H2D's #1078 FINISH→PREPARE delay — but subtask_id advance is "command landed" not "actually printing". When the printer accepted the file but wedged (cloud+LAN re-auth dance after a power cycle, old firmware), the queue row stayed status='printing', in-memory _expected_prints kept the entry, and every subsequent queue item was blocked. Fix splits the watchdog into Phase A (existing 90 s) + Phase B (new 180 s, ~3.5× the worst observed H2D FINISH→PREPARE delay): if Phase A exited via subtask_id-alone, Phase B keeps watching for the active-state transition before reverting. Phase B explicitly does NOT force-reconnect (subtask_id advance proves the publish landed; force-reconnect mid-parse triggers 0500_4003 per #1150).
+
+- Print Log "User" column now shows the user for prints started from the Queue (#1670, reported by @JmanB52D). Two-link gap on the Queue→manual-start path: POST /queue/{id}/start discarded the user dep, and PrintScheduler._start_print never called set_current_print_user. Fix writes item.created_by_id on the route (first-claim-wins so UI-added attribution isn't overwritten), and forwards the resolved username into printer_manager.set_current_print_user from the scheduler.
+
+- Print queue require_previous_success no longer cascades indefinitely after a user-cancelled print (#1667, fully root-caused by @599w6c26tv-droid). Reporter saw a single user-cancelled print block 18 downstream queue items over 3 days, with reproducible logs + DB dumps proving two distinct bugs: the lookback query excluded cancelled (so user-cancellations were never found as the recent predecessor — the query walked past) AND included skipped (so one bug-cascaded skip became the next item's "failed predecessor"). Fix swaps the lookback list to ["completed", "failed", "cancelled", "aborted"] and broadens the success check to prev_item.status in ("completed", "cancelled"). Conservative one-shot recovery migration in run_migrations resets only the skipped items whose immediate real predecessor was cancelled — narrow enough not to disturb skipped items whose true predecessor was a real failure.
+
+- Print modal now exposes a "Nozzle Offset Calibration" toggle for dual-nozzle printers (#1682, reported by @louiskleiman). The nozzle_offset_cali field was hardcoded to 2 (skip) in the MQTT project_file payload. New end-to-end plumbing with a hard MQTT-layer gate on dual-nozzle (is_dual_nozzle_model() + runtime _is_dual_nozzle flag) — even a stale queue item from when the printer was misidentified gets downgraded to 2 at dispatch. New default_nozzle_offset_cali setting (default True, matches BambuStudio behaviour); Settings row + QueuePage bulk-edit toggle only render when at least one registered printer is dual-nozzle.
+
+  **Cloud / external**
+
+- Firmware-update check no longer 403s against Bambu Lab's Cloudflare-gated download page (#1666, reported by @arekm). CF upped bot protection on bambulab.com to a JA3 / TLS-fingerprint challenge; plain Python TLS handshakes (httpx, requests, urllib) don't match Chrome's ClientHello bytes. Fix uses curl_cffi for the two bambulab.com fetches only. The HTTP-layer User-Agent stays Bambuddy/1.0 honest per the 2026-05-12 compliance commitment — only TLS handshake bytes match Chrome. Pinned by a test (test_bambulab_curl_cffi_session_keeps_honest_user_agent) that fails the build if the UA override is ever dropped. Soft dependency: if the wheel doesn't install on the host platform, the service logs a startup warning and falls back to httpx (wiki-based version detection continues to work; only the in-app firmware download URL stops resolving). wiki.bambulab.com and the CDN path stay on httpx — neither sits behind the same JA3 gate.
+
+- MakerWorld URL imports into a writable external folder wrote bytes to internal storage, not the NAS (#1645, reported and root-caused by @needo37). save_3mf_bytes_to_library accepted folder_id but never loaded the folder or inspected is_external / external_path — hardcoded the destination to internal storage and left the row with is_external=False. Same class of bug as #1112 (fixed for multipart-upload + move paths, never applied to byte-import). Fix mirrors the multipart-upload path: load the target LibraryFolder, feed it through _resolve_upload_destination, persist via _stored_file_path(dest, is_external).
+
+  **Auth / session**
+
+- Tabs no longer go silently zombie after the JWT expires — auth-expiry now redirects to /login on the same tab (#1698, reported by @TCL987, fix mirrored from reporter's fork). When a 401 with a token-invalidating message landed in client.ts, the handler called setAuthToken(null) to drop the token, but AuthContext.user is a React state value that doesn't react to module-level setters. ProtectedRoute only redirects when user === null, so the protected tree kept rendering, every request went out with no Authorization header, and the UI silently looked empty. Fix dispatches a window.dispatchEvent(new CustomEvent('auth:expired')) after setAuthToken(null); AuthContext listens and calls setUser(null). Generic 401 Authentication required (no token-invalidating message) still doesn't fire the event — preserves the existing transient-401 tolerance.
+
+  **System / install**
+
+- System page now reports the container's uptime / boot time, not the host's (#1690, reported by @IndividualGhost1905). psutil.boot_time() reads /proc/stat:btime, which on shared-kernel containers is the host's boot time. Fix reads psutil.Process(1).create_time() — PID 1 in a container is the entrypoint, on bare metal / VMs it's effectively the host init. Defensive fallback to boot_time() if /proc/1/stat is unreadable.
+
+- Native systemd install no longer fails when INSTALL_PATH is under /home (#1685, reported by @Geoff-S). bambuddy.service shipped with ProtectHome=true, which makes /home/* invisible to the service namespace; ReadWritePaths=$INSTALL_PATH doesn't reliably re-expose subpaths for executable resolution. Fix detects INSTALL_PATH == /home/* and emits ProtectHome=read-only for that case; the default /opt/bambuddy/ install keeps ProtectHome=true.
+
+- X2D archives lose 3MF metadata because FTPS handshake fails on firmware 01.01.00.00 (#1638, reported by @vasmarfas). Same shape as the P2S 01.02.00.00 FTPS bug from #1401 — Python 3.13's TLS-1.3 default rejected by the X2D's implicit-FTPS server. Fix adds an X2D entry to the per-model ftp_profiles.py registry with cap_tls_v1_2=True and an N6 → X2D SSDP alias. Honest caveat: hypothesis-driven trial. The TLS-1.2 cap is the most likely cure given symptom family resemblance to #1401; if it doesn't clear the error, the registry slot stays useful as a tuning anchor for the next round of diagnostics.
+
+  **Settings**
+
+- Profile editor filament type dropdown now lists PLA-CF and the other Bambu CF / GF / specialty materials (#1686, reported by @Bgabor997). The filament_type select shipped with 11 base materials; expanded to 25 BambuStudio-aligned options grouped by family (PLA + CF/GF/AERO, PETG + CF, ABS + GF, ASA + CF/GF, PC, PCTG, PA family + CF/PAHT-CF/PA6-CF/PA6-GF, PET-CF, TPU, PPS family + CF/GF for X1E, PVA, HIPS).
+
+- Scheduled local backup time is now interpreted as local time, not UTC (#1602 follow-up). Pre-fix the picker stored HH:MM and _calculate_next_run replaced into datetime.now(timezone.utc) — a UTC+3 user who wanted 21:00 local had to enter 18:00. Post-fix uses the container's local timezone resolved from TZ via zoneinfo.ZoneInfo. UTC fallback when TZ is unset or unrecognised. UI now renders the resolved zone name next to the time field. One-time behaviour change: users who   entered a UTC-offset workaround will see the first scheduled cycle after upgrade run at their local-TZ offset earlier than expected.
+
+  **Internal / observability**
+
+- Background asyncio tasks no longer get garbage-collected mid-flight (#1648 follow-up). Support-bundle review surfaced 94 Task was destroyed but it is pending! warnings in 8 days of v0.2.4.5 — asyncio holds only a weak reference to the result of create_task, so "fire and forget" call sites that don't store the returned task got GC'd before completion. The warning gives no traceback, so the originating exception (if any) vanished silently. New spawn_background_task(coro, *, name=None) helper stores a strong reference, attaches a done-callback that auto-removes on completion AND logs uncaught exceptions with the originating traceback. 16 truly-orphan create_task call sites migrated; other sites already keeping strong refs are unchanged.
+
+---
+**Credits**
+
+  External contributors and reporters who drove this release: @samedyuksel (PR #1659 CSV import / export), @Spionkiller01 (root-caused + patched #1688 / #1689 / #1689 follow-up with H2C testing), @TCL987 (#1698 JWT zombie tabs — fix mirrored from their fork), @needo37 (#1645 MakerWorld external folder, plus the original #1593 multi-plate diagnosis), @volodymyr-doba (#1697 multi-plate filament tracking), @kleinwareio (#1680 / #1694 / #1678), @IndividualGhost1905 (#1679 / #1658 / #1690 / #1687 / #1670), @hasmar04 (#1329), @CMW-ISS (#1281), @hollajandro (#1548 round 2), @klevin92 (#1642), @kcw96 (#1621), @TheFou (#1646 + Docker docs corrections), @louiskleiman (#1682), @ferch-G (#1648), @technopaw (#1649), @arekm (#1666 with the working bypass demonstrated), @JmanB52D (#1670), @599w6c26tv-droid (#1667 fully root-caused), @Bgabor997 (#1686), @Geoff-S (#1685), @vasmarfas (#1638), @MartinNYHC (#1564), @d3nn3s08 (#1657), @rtadams89, @Jeff-GebhartCA, @MA2ZAK (#1397), @vmhomelab's Windows installer carries forward unchanged. 
+  
 Thank you!
 
