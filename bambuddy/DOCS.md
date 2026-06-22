@@ -109,8 +109,8 @@ When a Virtual Printer is created and started in BamBuddy, it will bind to the f
 | 3000, 3002 | TCP | Slicer handshake / bind detection |
 | 8883 | TCP | MQTT (TLS) |
 | 990 | TCP | FTPS file transfer control |
-| 6000 | TCP | File transfer tunnel (TLS) / RTSP camera (A2L) |
-| 322 | TCP | RTSP camera (X1 / H2 / P2) |
+| 6000 | TCP | File transfer tunnel (TLS) / Chamber Image camera (P1 / A1 / A2) |
+| 322 | TCP | RTSP camera (X1 / X2 / H2 / P2) |
 | 2024-2026 | TCP | Proprietary slicer ports (A1 / P1S) |
 | 50000-50029 | TCP | FTP passive data transfers |
 
