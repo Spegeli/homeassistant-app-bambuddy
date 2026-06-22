@@ -107,6 +107,7 @@ When a Virtual Printer is created and started in BamBuddy, it will bind to the f
 | Port(s) | Protocol | Purpose |
 |---------|----------|---------|
 | 3000, 3002 | TCP | Slicer handshake / bind detection |
+| 2021 | UDP | SSDP printer discovery (LAN only) |
 | 8883 | TCP | MQTT (TLS) |
 | 990 | TCP | FTPS file transfer control |
 | 6000 | TCP | File transfer tunnel (TLS) / Chamber Image camera (P1 / A1 / A2) |
