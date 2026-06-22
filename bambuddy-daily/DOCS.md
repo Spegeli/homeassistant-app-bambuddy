@@ -74,7 +74,7 @@ If your Home Assistant instance uses a self-signed certificate (or a certificate
 **Steps:**
 
 1. Export your CA certificate as a `.crt` file (PEM format - the public CA certificate only, no private key).
-2. Open the **File Editor** in Home Assistant and navigate to:  
+2. Open the **File Editor** in Home Assistant and navigate to:
    `addon_configs` -> `[slug]_bambuddy_daily`
 3. Upload or create the certificate file there (e.g., `custom_ca.crt`).
 4. In the add-on configuration, enable **Use System Trust Store** and set **CA Certificate Filename** to the filename you used in step 3.
@@ -109,7 +109,7 @@ When a Virtual Printer is created and started in BamBuddy, it will bind to the f
 | 3000, 3002 | TCP | Slicer handshake / bind detection |
 | 8883 | TCP | MQTT (TLS) |
 | 990 | TCP | FTPS file transfer control |
-| 6000 | TCP | File transfer tunnel (TLS) |
+| 6000 | TCP | File transfer tunnel (TLS) / RTSP camera (A2L) |
 | 322 | TCP | RTSP camera (X1 / H2 / P2) |
 | 2024-2026 | TCP | Proprietary slicer ports (A1 / P1S) |
 | 50000-50029 | TCP | FTP passive data transfers |
