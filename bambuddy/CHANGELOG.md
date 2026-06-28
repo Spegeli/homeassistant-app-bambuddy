@@ -1,150 +1,202 @@
-## 0.2.4.7
+## 0.2.4.8
 
-**Bambuddy 0.2.4.7**
+**Bambuddy 0.2.4.8**
 
 **⚠ Upgrade Notes — Read Before Updating**
 
-0.2.4.7 is a fix-led patch release on the same 0.2.4 code base — no schema breaks beyond auto-migrated column additions (dialect-branched for SQLite and Postgres), no Docker entrypoint changes. The in-app Apply Update button in Settings → System → Updates works for Docker and for any native install already on 0.2.4.x.
+0.2.4.8 is a fix-led patch release on the same 0.2.4 code base — no schema breaks beyond auto-migrated column additions (dialect-branched for SQLite and Postgres), no Docker entrypoint changes. The in-app Apply Update button in Settings → System → Updates works for Docker and for any native install already on 0.2.4.x.
 
-Four behavior-change callouts to know about before you upgrade:
+Three behaviour-change callouts to know about before you upgrade:
 
-- Capture-Finish-Photo on the printer side is no longer force-toggled at dispatch (#1721, reported by @agrisci). The earlier workaround force-enabled the printer-side setting on every print to drive the finish-photo capture; the side effect was that intermediary progress notifications fell silent on A1, and the slicer's own Capture Finish Photo checkbox was silently overridden. Dispatch no longer flips the printer-side setting. Finish-photo capture is now driven by Bambuddy's own stage-22 pre-capture path with a FINISH-state fallback. If you previously unchecked Capture Finish Photo in the slicer to dodge the side effect, you can re-enable it. If you relied on the force-on to get finish photos without slicer changes, the FINISH-state fallback covers it — no UI change required.
+- SSO autologin landed as a per-OIDC-provider opt-in (#1589, requested by @einstux). No existing install changes behaviour on upgrade — local login stays enabled by default and no provider is marked as autologin. To enable: turn on the new `is_autologin` flag on exactly one enabled OIDC provider in Settings → Auth, optionally disable local login at the same screen, and unauthenticated visitors will be redirected to your IdP on mount. A `BAMBUDDY_LOCAL_LOGIN=true` env-var bypasses both gates if your SSO provider is unreachable, and `/login?fallback=local` is a bookmarkable always-shows-the-form URL. Two refusal modes protect against lockout: disabling local login is rejected unless at least one OIDC provider is enabled AND the calling admin has a UserOIDCLink row.
 
-- Slicer Bundle (.bbscfg) import removed (#1712, reported by @IndividualGhost1905). The legacy .bbscfg import path on the Slicer page is gone — it silently underdelivered on multi-tier preset matching and conflicted with the Orca Cloud / Bambu Cloud precedence work. Use the cloud sync (Orca Cloud or Bambu Cloud) or local imported presets instead. The SliceModal preset picker now reaches across Imported → Orca Cloud → Bambu Cloud → Standard with proper precedence and cross-tier dedup.
+- Sponsor-prompt thresholds lowered to fire for typical installs. The lowest print milestone drops from 100 → 10, archives from 50 → 5, and cost from 100 → 25 (EUR). Installs that already saw a sponsor toast within the last 14 days won't see more — the cross-family cooldown is unchanged. Installs that have never crossed the old 100-print bar become eligible the first time they pass 10 prints. The toast itself is the existing one, copy unchanged.
 
-- Bambu Lab A2L support added (#1684). New "A2 Series" optgroup in the Add-Printer / Edit-Printer dropdowns and across the SpoolBuddy / inventory surface. The connection diagnostic, AMS slot routing, and camera path all auto-shape themselves to A2L's hardware (Wi-Fi-only, chamber-image protocol on port 6000 instead of RTSPS:322, single-extruder + cutter/plotter head with no deputy-slot routing). Existing X1 / H2 / P1 / P2 / A1 surfaces are unchanged. If you're on an A2L: re-test Configure AMS Slot — the picker now filters profiles to A2L-compatible filaments (#1623 fix below).
+- Printer card UI refresh (#1661). Visual change on the main Printers page — re-arranged for structure and readability. The Filaments section header now carries the new AMS Filament Backup badge (blue circle-arrow when on, dim when off, "?" on A1 family where the cfg bit isn't yet parsed). External tray slots show `L` / `R` inside the colour circle instead of a separate `Ext-L` / `Ext-R` caption underneath, equalising the bottom row's height. No data-model change; existing customisation persists.
 
-- Windows installer pipeline overhauled. The installer is self-versioning (filename matches the release tag, plus an unversioned alias on stable / beta), ships its own NSSM binary instead of fetching at build time, stops the Bambuddy service before file copy on upgrade, and bootstraps setuptools + wheel into its embedded Python so the post-install dependency install doesn't fail on a clean machine. Existing Windows installs upgrade in place via the Service / Update entries on the new installer; first-time installs no longer depend on a network trip to a flaky NSSM mirror.
-
-Make a backup before upgrading via Settings → Backup → Create Backup. Native install with update.sh snapshots the database automatically and rolls back on failure.
-Docker and fully-manual paths don't.
+Make a backup before upgrading via Settings → Backup → Create Backup. Native install with update.sh snapshots the database automatically and rolls back on failure. Docker and fully-manual paths don't.
 
 **Docker**
 
+```
 docker compose pull
 docker compose up -d
+```
 
-docker-compose.yml doesn't need refreshing for 0.2.4.7. (If you map the VP passive FTP port range or run the slicer-API sidecar, the 0.2.4.6 upgrade notes still apply —
-nothing new in 0.2.4.7.)
+docker-compose.yml doesn't need refreshing for 0.2.4.8.
 
 **Native install — recommended path**
 
+```
 sudo BRANCH=main /opt/bambuddy/install/update.sh
+```
 
 Snapshots the database first and rolls back on failure.
 
 **Native install — manual path**
 
+```
 sudo systemctl stop bambuddy
 cd /opt/bambuddy
 sudo -u bambuddy git fetch --prune --tags --force origin
 sudo -u bambuddy git checkout main
 sudo -u bambuddy git reset --hard origin/main
 sudo /opt/bambuddy/venv/bin/pip install -r requirements.txt
+cd frontend && sudo npm i
 sudo systemctl start bambuddy
-
-requirements.txt bumps the aiohttp floor to >=3.14.0 this release to clear two upstream advisories. No code change inside Bambuddy — only the floor moves so fresh installs and CI pick up the fix.
+```
 
 **Windows install**
 
-0.2.4.7 ships a rebuilt Windows installer with the pipeline improvements from the Upgrade Notes. Download bambuddy-0.2.4.7-windows-x64-setup.exe from this release page (or the unversioned bambuddy-windows-x64-setup.exe alias for an always-latest link). Existing 0.2.4.5 / 0.2.4.6 installs upgrade in place — the installer stops the Bambuddy service, swaps files, restarts the service, and preserves your data directory.
+Download `bambuddy-0.2.4.8-windows-x64-setup.exe` from this release page (or the unversioned `bambuddy-windows-x64-setup.exe` alias for an always-latest link). The In-app "Install Update" button on Windows installs now uses the same release-asset flow — no more "Could not find git executable" failures.
 
 ---
 **Highlights**
 
-0.2.4.7 is a heavy fix-cycle release with one big add — Bambu Lab A2L support (#1684) — and a long tail of contributor-credited fixes across the Virtual Printer, Slicer, Print Queue, and connection-diagnostic surfaces.
+0.2.4.8 is dominated by three threads: **AMS Filament Backup** becoming a first-class surface, **SSO autologin** for operators running their own OIDC, and a heavy contributor-credited fix sweep across notifications, the Virtual Printer, SpoolBuddy, and the queue.
 
-The Virtual Printer surface got another full sweep driven by #1622 telemetry. The bridge cache now accumulates push_status per-field instead of replacing fields on each push (round 4), overlays incoming dict-shaped fields onto the cache instead of wholesale replacement (round 5, @shaddowlink), and applies the tray_exist_bits empty-slot cleanup to the slicer-facing cache (#1726, @needo37 with full code-level analysis). Net effect: BambuStudio's Device tab no longer greys out between pushalls, and Sync no longer sees phantom-loaded filaments in empty AMS slots. Three env-flagged debug paths landed in the same cycle (wire-payload dump, command-flow trace, bridge-synthesised-reply trace) and stay silent in normal operation.
+The AMS Filament Backup thread closes the gap reporters @jpcast2001 and @Arn0uDz hit on dual-AMS X1C farms — when one slot ran low, the deficit check ignored a same-material backup peer and blocked the print. Bambuddy now reads and writes the per-printer backup state from the printer card (new badge in the Filaments section header), mirrors it into the colour-strict deficit check (#1762), and threads it into the dispatcher's "Prefer lowest" sort (#1766) so the spool that ought to run dry first really does. The mid-print spool-switch attribution bug @biduleman hit (#1771) — the firmware's end-of-print `total_layer_num=0` push was clobbering the cached total, collapsing every previous segment to 0g — is fixed in the same train.
 
-Slicer (SliceModal) is the second-largest theme: full preset-lookup precedence rework + cross-tier dedup + signed-out banner + AMS slot badges (#1712, @IndividualGhost1905). Follow-ups in the same train fix the Orca Cloud / Bambu Cloud preset resolver to pin type and from to CLI-accepted values for the headless slicer-api sidecar, and the Library G-code preview now correctly renders sidecar-sliced .gcode.3mf rows as G-code instead of returning raw ZIP bytes as text/plain
-(#1709, root cause + fix from @yanglei1980).
+SSO autologin (#1589) lands as a per-OIDC-provider opt-in with safety refusals on the disable-local-login toggle to prevent lockout, plus an env-var recovery path and a bookmarkable `/login?fallback=local`. See Upgrade Notes for the full surface.
 
-Print Queue + Archive polish: multi-plate Send All now enqueues one queue item per plate instead of one item per click, archive delete cascades to remove related queue items instead of leaving "cancelled" rows behind, the force-color-match checkbox is no longer missing when scheduling against a specific printer (#1717, @SamNuttall), and the filament-override panel surfaces Bambu Studio's sub-brand colour name instead of the raw 3MF base material (#1718, @SamNuttall). Multi-color filament rows in the Print Log render one swatch per colour instead of a single barely-visible gray dot (#1731 part 1, @IndividualGhost1905). Telegram (and other image-bearing) finish notifications on a reprint-from-archive now ship the new run's finish photo instead of the original print's (#1707, @kycrna).
+Notifications got a sweep: false-positive "Print Stopped" on reprint after MQTT reconnect (#1807), finish-photo dropped on FINISH-state fallback (#1790), completion notification scoping the whole multi-plate project instead of the printed plate (#1785), and "Printer offline" push never firing on the disconnect edge (#1752) all fixed by separate contributors and reporters.
 
-Windows + restore reliability. Beyond the installer pipeline overhaul: /api/local-backup/status no longer 500s on ZoneInfoNotFoundError: 'No time zone found with key UTC' from a missing zoneinfo DB on the Windows installer (a stdlib UTC fallback covers it). Network-interface enumeration on Windows now uses psutil instead of the Linux-only path. Restore pauses timer-based DB writers before the swap, fixing a Postgres deadlock cascade observed during multi-printer restores.
+The Virtual Printer surface got another #1780 round driven by reporter @mkoreen — three commits bumping the slicer-MQTT race window to 5s with retroactive stamp, correcting a VP intake key mismatch that was silently dropping every slicer field, and forwarding the H2C rack-swap nozzle pick from slicer to dispatch.
+
+Smaller-but-load-bearing: **per-printer Maintenance Mode** (#1476) so a printer can be excluded from the dispatcher without unplugging it, **per-filament humidity threshold for auto-drying** (#1605), **drag-reorder for grouped queue items**, and **heater history** (nozzle / bed / chamber) tracked with a per-tile chart-icon overlay opening the history modal.
 
 ---
 **New Features**
 
-- Bambu Lab A2L support (#1684). New "A2 Series" optgroup in Add-Printer / Edit-Printer dropdowns, with full capability resolution from BambuStudio's machine profile cross-checked against Bambu's official A2L specs page: linear rail, single FDM extruder + integrated cutter/plotter head, Wi-Fi-only (no Ethernet), Low-Rate-Kamera on the chamber-image protocol (port 6000, not RTSPS:322), no heated chamber. The dual-tool-head capability is correctly distinguished from dual-filament extrusion — A2L is not in DUAL_NOZZLE_MODELS, so AMS does not route to a deputy slot (firmware would reject with 07FF_8012). Registry updates touch utils/printer_models.py, firmware_check.py (wiki path follows the established /en/a2l/manual/a2l-firmware-release-history pattern; existing 404 handling makes this safe to ship before Bambu publishes the page), virtual_printer/manager.py (serial prefix 26A19), virtual_printer/mqtt_server.py, PrintersPage.tsx, and  SpoolBuddyAmsPage.tsx. Camera and dual-nozzle code paths need no edits — supports_rtsp() correctly falls through to chamber-image and is_dual_nozzle_model() correctly returns False.
+- AMS Filament Backup status badge + toggle on the printer card; "Prefer lowest" actually picks the lowest spool (#1766, reported by @biduleman). Three states — ON (blue circle-arrow), OFF (dim), Unknown ("?" on A1 family where the cfg bit isn't parsed yet). Click toggles via the new `POST /printers/{id}/ams-backup` endpoint (gated on `printers:control`).
 
-- Re-print / Schedule modal allows cross-extruder AMS slot picks on dual-nozzle (#1722, reported by @privatsturm). The picker previously gated AMS slot choices to the same extruder as the source plate's filament group. On dual-nozzle hardware that's wrong — operators routinely re-route a left-side filament to a right-side AMS slot when the left bank is empty or busy. Fix removes the gate; the MQTT layer's existing dual-nozzle routing handles the rest.
+- Backup-aware filament deficit check, colour-strict (#1762, reported by @jpcast2001 + @Arn0uDz). Pre-print check sums grams across same-material backup peers instead of treating each slot in isolation.
 
-- Support bundle now includes redacted cached push_status per connected printer. The raw push_status payload is the single highest-signal artefact for diagnosing slicer-facing VP issues. The new bundle entry walks the cached payload and scrubs net.info[*].ip plus the documented privacy-sensitive fields before serialising — the live state.raw_data is never mutated. Drops directly into the existing bundle archive alongside the existing log + config dumps.
+- SSO autologin + disable local username/password login (#1589, requested by @einstux). Per-OIDC-provider `is_autologin` flag and `BAMBUDDY_LOCAL_LOGIN` env-var recovery path. See Upgrade Notes.
 
-- One-shot device identification probe for unknown printer models. When Bambuddy sees a serial prefix it doesn't recognise on the MQTT bus, it now fires a single push_all-only probe to surface the model code, instead of either silently dropping the connection or polluting the log with repeated unknown-model warnings. Aids future model rollouts (next H2 / A2 / X2 family variant).
+- Per-printer Maintenance Mode toggle (#1476, requested by @IndividualGhost1905 / Ferdi SEVER). Excludes a printer from queue dispatch without disconnecting it — useful for swap-out / cleaning / firmware-flash windows.
+
+- Per-filament humidity threshold for auto-drying + alarms (#1605, requested by @thenewguy). Replaces the single global threshold with per-filament overrides; falls back to global when unset.
+
+- Heater history (nozzle / bed / chamber) tracked + per-tile chart-icon overlay opens history modal. Mirrors the existing AMS sensor history surface; same retention + sampling cadence.
+
+- Updated printer card UI for structure and readability (#1661). See Upgrade Notes for the visual change summary.
+
+- Drag-reorder for grouped queue items; collapsed batches no longer block adjacent rows.
+
+- Forecasting groups spools by colour + Forecast UI rework (#1814, by @Keybored02).
+
+- "Auto-add unknown RFID spools" toggle + global confirmation modal (#1764). Reporters with multi-operator workshops saw duplicate inventory rows accumulating; toggle defaults to today's auto-add behaviour for compatibility, the modal asks before adding when unset.
+
+- In-app sponsor-toast at earned milestones (Prints / Cost / Archives / Anniversary / Version-update). Cooldown 14 days across all families.
+
+- Prominent sponsor banner on Settings → General. Single dismissable banner above the existing settings list on the default landing tab.
+
+- Lower sponsor-prompt thresholds. See Upgrade Notes.
 
 ---
 **Changes**
 
-- VP MQTT bridge cache shape rework (#1622 rounds 4 + 5). The cache now accumulates push_status per-field instead of replacing fields on each incoming push (round 4, fixes Device-tab greying), and overlays incoming dict-shaped fields onto the cache instead of replacing the whole sub-object (round 5, @shaddowlink, fixes vt_tray going "invalid" right after a slicer filament pick). Field accumulation is bounded by the field allowlist documented in the VP regression matrix.
-
-- SliceModal preset-lookup precedence + cross-tier dedup + signed-out banner + AMS slot badges (#1712, reported by @IndividualGhost1905). The 4-tier picker (Imported → Orca Cloud → Bambu Cloud → Standard) now enforces the documented precedence end-to-end with explicit dedup on key collisions, surfaces a signed-out banner per cloud
-tier instead of silently empty lists, and renders AMS slot badges next to the preset row so operators can see at a glance which slot the preset would land in. The legacy .bbscfg import path was dropped in the same train — see Upgrade Notes.
-
-- Print-modal "off" toggles for flow_cali and nozzle_offset_cali now actually suppress the calibration stage. Live-tested on H2D 01.x. The previous behaviour wrote the toggle value into the project_file payload but the firmware still ran the stage; fix routes through the existing dual-nozzle gate and the calibration-suppress field at the MQTT layer.
-
-- Support-bundle log noise demoted (#1721 adjacent, observed on the reporter's A1). Benign "not connected" and "may linger" warnings are now INFO-level so the bundle log dumps surface real problems instead of background heartbeat noise.
-
-- aiohttp pinned to >=3.14.0 in requirements.txt for two upstream advisories. Bambuddy's aiohttp usage was unaffected by the underlying issues, but the floor moves so
-fresh installs and CI pick up the fixed runtime.
+- Printer card AMS row: external tray height matches regular AMS slots. L/R label now lives inside the slot's colour circle in place of the index; bottom `Ext-L` / `Ext-R` caption removed.
 
 ---
 **Fixed**
 
+**Notifications**
+
+- False-positive "Print Stopped" notification on reprint after MQTT reconnect (#1807, reported by @volodymyr-doba).
+
+- Print-complete notification no longer drops the finish photo when the FINISH-state fallback fires (#1790, reported by @needo37). Producer→consumer sync.
+
+- Completion notification scoped to printed plate on multi-plate 3MFs (#1785). Multi-plate single-plate prints used to report the whole project's duration + material; now matches the queue card.
+
+- Push notification for "Printer offline" actually fires (#1752, reported by @saint-hh). `on_printer_offline` dispatch wired on the disconnect edge — the callback existed but the wire was missing.
+
+**Auth / OIDC / permissions**
+
+- API keys with Manage Library permission can rename / delete / move library files (#1832, reporter @MorganMLGman). `LIBRARY_UPDATE_ALL` / `LIBRARY_DELETE_ALL` now map to `can_manage_library`; `LIBRARY_PURGE` stays admin-only.
+
+- Sidebar entries for Files / Archives / Queue no longer hidden from non-admin users with granular `*_read` access (#1755, reported by @knifesk).
+
+- Auth preserves the original URL across login + OIDC round-trip (#1750). Bookmarks land where the user clicked, not the dashboard.
+
+- Printer secrets restricted to update-authority callers. Tightens which API surfaces can return access codes and credentials.
+
+**Virtual printer / dispatch**
+
+- H2C nozzle pick from Bambu Studio preserved on dual-nozzle rack variant + VP slicer-field intake (#1780, reported by @mkoreen). Three commits landed: slicer-MQTT race window bumped to 5s with retroactive stamp, VP intake key mismatch corrected, rack-swap nozzle pick forwarded to dispatch.
+
+- Mid-print AMS Backup spool-switch correctly splits weight instead of crediting all to the second spool (#1771, reported by @biduleman). Cascades `state.total_layers` → `last_layer_num` → equal-split fence; firmware's end-of-print `total_layer_num=0` push no longer clobbers the cached total.
+
+**Print queue + scheduler**
+
+- `require_previous_success` no longer permanently blocks a printer's queue after a failure (#1818, reported by @jmassardo). Resume-after-failure clears the gate.
+
+**Inventory / AMS / SpoolBuddy**
+
+- Assign-spool picker note now visible on mobile (#793 follow-up, reporter @EmcetPL). Note rendered as a muted line under the weight on both internal and Spoolman branches; `title=` tooltip preserved for desktop hover.
+
+- SpoolBuddy "Assign to AMS" preserves the user's slicer preset instead of pushing Generic (#1815, reported by @Bgabor997). Resolver now preserves PFUS / PFCN `setting_id`.
+
+- SpoolBuddy inventory search matches spool ID, slicer filament name, and storage location (#1738, reported by @shaddowlink). Was filtering on spool name only.
+
+- H2S active-tray highlight no longer stuck on AMS slot 1 during external-spool prints (#1822, reported by @ojimpo). `tray_now` promoted to 254 on all-external prints.
+
+- Unknown-tag modal no longer pops for slots with no RFID.
+
+**Connection / install**
+
+- Connection diagnostic no longer reports false camera-port warning on A1 / A1 Mini / P1 (#1799 closing #1798, by @lesbass / Stefano Maffeis).
+
+- Docker installer escalates on EACCES instead of failing on `/opt/bambuddy` (#1774, reported by @jmoore-skild). Auto-sudo on the directory create when needed.
+
+- In-app "Install Update" on Windows installer switched to release-asset update flow — no more "Could not find git executable" failures.
+
 **UI / rendering**
 
-- Print Log multi-color filament rows now render one swatch per colour instead of a single barely-visible gray dot (#1731 part 1, reported by @IndividualGhost1905). The renderer was averaging the multi-colour RGBA into a single greyscale fallback; the fix splits on the slicer's pipe-separated colour list and renders a small swatch row.
+- Chamber-fan badge hidden on open-frame Bambu printers that have no chamber fan.
 
-- Stats page Failure Analysis widget now renders translated failure reasons instead of raw camelCase keys (#1687 follow-up, reported by @IndividualGhost1905). The GET serialiser was dropping the canonical failure_reason mapping; the fix re-applies the same vocabulary the Archive Edit modal uses.
+- Archive thumbnails rendered server-side when the sidecar slice skips them (#1759, reported by @VID-PRO).
 
-- System page boot time no longer renders with a doubled timezone offset (#1690 follow-up, reported by @IndividualGhost1905). The recorder was emitting a tz-naive datetime that the frontend then localised on top; both boot_time and generated_at now ship as tz-aware UTC.
+- Local Presets page: deleted row optimistically removed instead of staying visible until refetch returned (which had allowed a second delete click → 404).
 
-- AMS slot card stays in sync with the new spool's preset name after RFID auto-assigns a new spool. Reporter observed H2D-1 / AMS-B3 / PLA-CF rendering as "Bambu PLA Silk+" until manual refresh. The fix invalidates the AMS slot's cached preset-name lookup on the same event that updates the spool binding.
+- AMS history modal respects theme background variant in stats modal.
 
-**Virtual printer**
+- Post-#1661 printer-card cleanup — test fixtures + hover-card fly-in removal.
 
-- Empty AMS slots no longer forwarded as phantom loaded filaments to BambuStudio Sync (#1726, reported with full code-level analysis by @needo37). The tray_exist_bits empty-slot cleanup now applies to the slicer-facing cache in addition to the live state — Sync sees the same empty-slot picture the real printer reports.
+**Docs / archives**
 
-- The vt_tray external-spool object no longer goes "invalid" immediately after a slicer filament pick (#1622 round 5, reported by @shaddowlink). The cache was replacing the whole vt_tray sub-object on each push, dropping the slicer's just-picked state; the overlay rework preserves field-level updates.
+- Archives "Step 4" docs link no longer 404s (#1812, reported by @Spanholz). Corrected `bambuddy.cool/wiki/...` host to `wiki.bambuddy.cool/...`.
 
-- VP cache no longer drains capability / lifecycle fields between pushalls, which had greyed out Device-tab UIs (#1622 round 4, reported by @shaddowlink). The per-field accumulation fix from the Changes section.
+- Archives backfill NULL `created_at` + tolerate NULL in response (#1732). Old archive rows from upgrades that ran before the column existed now render correctly.
 
-**Print queue + dispatch + archive**
+---
+**Security**
 
-- Multi-plate Send All now enqueues one queue item per plate instead of one item per click. The route was accepting the plate count from the UI but the queue-insert was firing once per request; fix iterates the plate set on the server side.
+- dompurify 3.4.10 → 3.4.11 (GHSA-cmwh-pvxp-8882, moderate). Frontend HTML sanitisation library; no Bambuddy code change.
 
-- Archive delete now removes related queue items instead of leaving "cancelled" rows behind. The cascade was already declared at the schema level but the DELETE route was using a soft-delete path that bypassed it; fix routes the archive delete through the same cascading path the bulk-delete already used.
+- Backend dependency security floor bumps — cryptography, python-multipart, starlette. Floor raises so fresh installs and CI pick up the fixed runtime.
 
-- Finish-photo capture: dispatch no longer force-toggles the printer-side Capture Finish Photo setting (#1721, reported by @agrisci). See Upgrade Notes for the full behaviour change.
+- Floor pins for pydantic-settings ≥2.14.2 + msgpack ≥1.2.1 to clear `pip-audit`.
 
-- Telegram (and other image-bearing) finish notification on a reprint-from-archive no longer ships the original print's finish photo instead of the new run's (#1707, reported by @kycrna). The notification was reading the finish-photo path from the source archive instead of the new archive row.
+- Vite 7 → 8 + plugin-react 5.2 (major bump) + frontend dependency bumps.
 
-- Print Queue filament-override panel now shows Bambu Studio's sub-brand colour name instead of the raw 3MF base material (#1718, reported by @SamNuttall). The panel was reading directly from the 3MF metadata instead of the resolved Bambu profile.
+- 422 constant rename — pinpoints the dependency-related security response constant.
 
-- Force-color-match checkbox no longer missing when scheduling against a specific printer (#1717, reported by @SamNuttall). The Charcoal-style label fix from earlier in the queue cycle was missing on the Specific-Printer panel; this also extends to a related label-fix follow-up (#1718 round 3).
+---
+**Contributors**
 
-**Inventory / AMS / connection diagnostic**
+External code contributors with merged PRs in this release: @EdwardChamberlain (#1661 — Update printer card UI for structure and readability), @Keybored02 (#1814 — Forecasting: group spools by colour + UI rework), @lesbass / Stefano Maffeis (#1799 closing #1798 — A1 / A1 Mini / P1 camera-port diagnostic). Thank you!
 
-- Configure AMS Slot picker now filters filament profiles to the printer model (#1623, reported by @shaddowlink). The list was showing every imported profile regardless of printer compatibility; the fix routes the picker through the same compatibility filter the SliceModal uses.
+The reporters who drove the fixes in this release are credited inline next to each Fixed entry above.
 
-- Connection diagnostic no longer flags external_storage: fail on A1 / A1 Mini (#1703, reported by @MartinNYHC). A1 and A1 Mini have no MicroSD slot; the diagnostic now skips the check for those models with a clear "n/a — printer has no SD slot" surface.
+---
+**Sponsors**
 
-- A1 / A1 Mini internal-code map was swapped in PRINTER_MODEL_ID_MAP (surfaced while scoping A2L support, #1684). The swap had no user-visible symptoms but corrupted the printer-model resolver for any code path that round-tripped through the ID map.
+Bambuddy is sustainable thanks to people who put their money where their use is. If this release saved you time or kept your farm running, the project runs on recurring contributions — there's no paid tier, no telemetry, no upsell, just sustainable maintenance.
 
-**Slicer / library**
+- **GitHub Sponsors** (recurring, 5 tiers from $5/mo to $300/mo) — https://github.com/sponsors/maziggy
+- **Ko-fi** (one-time or recurring) — https://ko-fi.com/maziggy
 
-- Library G-code preview returned raw ZIP bytes as text/plain for sidecar-sliced .gcode.3mf rows (#1709, root cause + fix from @yanglei1980). The preview route was branching on filename suffix but the sidecar produces .gcode.3mf — a ZIP wrapper around a .gcode payload. Fix extracts the inner .gcode before serving and pins the Content-Type to text/x-gcode.
-
-- Cloud + Orca Cloud preset resolver now pins type and from to CLI-accepted values (#1712 follow-up, reported by maziggy on a Mecha Mewtwo slice). The resolver was passing the user-tier-as-displayed string ("orca_cloud") to the headless slicer-api CLI, which only accepts a fixed enum; fix maps display tiers to CLI tiers explicitly.
-
-**Windows / install / restore**
-
-- /api/local-backup/status no longer 500s on ZoneInfoNotFoundError: 'No time zone found with key UTC' (from a user's log on the Windows installer). Some Windows hosts ship without the IANA zoneinfo database; the fix falls back to the stdlib UTC implementation when the IANA lookup raises.
-
-- Network-interface enumeration on Windows now uses psutil instead of the Linux-only socket path. Affected the Add-Printer custom-subnet picker and any path that listed local interfaces.
-
-- In-app updater now routes every git step through app_dir for separate-mount installs (#1715, reported by @francescocozzi). On installs where /opt/bambuddy/data is a separate mount from /opt/bambuddy, the updater's git commands ran from the data dir and failed silently on the .git lookup; fix explicitly passes -C app_dir.
-
-- Restore now pauses timer-based DB writers before swap, fixing a Postgres deadlock cascade. Multi-printer restores were triggering concurrent timer writers against the same connection pool as the restore transaction; fix gates the timer loop on a "restore in progress" flag.
+Everyone supporting Bambuddy is named at https://bambuddy.cool/backers.html (and in `BACKERS.md` in the repo). Special thanks to @northpole3dprinting (Corporate tier) and all the Patron / Supporter / Backer sponsors who made this release possible.
 
