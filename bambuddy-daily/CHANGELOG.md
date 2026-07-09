@@ -1,7 +1,7 @@
-## 0.2.5b2-daily.20260708
+## 0.2.5b2-daily.20260709
 
 > [!NOTE]
-> This is a **daily beta build** (2026-07-08). It contains the latest fixes and improvements but may have undiscovered issues.
+> This is a **daily beta build** (2026-07-09). It contains the latest fixes and improvements but may have undiscovered issues.
 >
 > **Docker users:** Update by pulling the new image:
 > ```
