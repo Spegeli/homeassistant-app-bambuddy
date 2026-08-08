@@ -3,7 +3,7 @@ name: Bambuddy (Daily)
 version: "1.2.6b1-daily.20260808"
 slug: bambuddy_daily
 stage: experimental
-description: Bambuddy is a powerful, self-hosted command center for Bambu Lab — from one A1 to a 40-printer farm. Your Printers. No Cloud. Your Rules.
+description: Bambuddy is a powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules.
 url: "https://github.com/Spegeli/homeassistant-app-bambuddy"
 arch:
   - aarch64

@@ -2,7 +2,7 @@
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield]
 
-This app integrates [BamBuddy](https://github.com/maziggy/bambuddy) into Home Assistant — a self-hosted command center for Bambu Lab — from one A1 to a 40-printer farm. 
+This app integrates [BamBuddy](https://github.com/maziggy/bambuddy) into Home Assistant — a self-hosted command center for Bambu Lab — from one A1 to an entire print farm.
 
 <strong>Your Printers. No Cloud. Your Rules.</strong>
 

@@ -9,11 +9,10 @@
 </p>
 <p align="center">
   <strong>Your printers. No cloud. Your rules.</strong><br>
-  Self-hosted command center for Bambu Lab &mdash; from one A1 to a 40-printer farm.
+  Self-hosted command center for Bambu Lab &mdash; from one A1 to an entire print farm.
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy/config.yaml&query=$.version&label=stable&color=blue">
-  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-beta/config.yaml&query=$.version&label=beta&color=orange">
   <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-daily/config.yaml&query=$.version&label=daily&color=purple">
 </p>
 <p align="center">
@@ -46,12 +45,11 @@ Or add it manually:
 
 ---
 
-Once the repository is added, you'll find **three versions** of BamBuddy available:
+Once the repository is added, you'll find **two versions** of BamBuddy available:
 
 | Version | Description |
 |---|---|
 | **BamBuddy** | ✅ Stable release — recommended for most users |
-| **BamBuddy (Beta)** | 🧪 Beta release — newer features, may contain bugs |
 | **BamBuddy (Daily)** | 🔬 Daily build — cutting-edge, least stable |
 
 Install your preferred version and follow the configuration steps.
@@ -60,7 +58,7 @@ Install your preferred version and follow the configuration steps.
 
 ## 🔄 Automatic Updates
  
-This App includes automatic update tracking for all three versions (Stable, Beta and Daily).
+This App includes automatic update tracking for both versions (Stable and Daily).
  
 Updates are checked **every hour**. As soon as a new BamBuddy release is available, it will automatically appear in Home Assistant — ready to install with a single click, just like any other App update.
  
