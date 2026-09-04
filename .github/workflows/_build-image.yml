@@ -9,6 +9,14 @@ on:
       image:
         required: true
         type: string
+      version:
+        required: false
+        type: string
+        default: ''
+      build_args:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -51,6 +59,7 @@ jobs:
           context: ${{ inputs.context }}
           platforms: ${{ matrix.platform }}
           provenance: false
+          build-args: ${{ inputs.build_args }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
@@ -81,10 +90,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Read version from config.yaml
+      - name: Resolve version
         id: version
         run: |
-          VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*\"\(.*\)\"/\1/')
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*\"\(.*\)\"/\1/')
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION"
 

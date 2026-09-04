@@ -11,18 +11,20 @@ env:
 jobs:
 
   # ============================================================
-  # STABLE
+  # STABLE: check -> build -> commit
   # ============================================================
-  update-stable:
-    name: Update STABLE
+  check-stable:
+    name: Check STABLE
     runs-on: ubuntu-latest
     concurrency:
       group: update-stable
       cancel-in-progress: true
     permissions:
-      contents: write
-      actions: write
-
+      contents: read
+    outputs:
+      changed: ${{ steps.decide.outputs.changed }}
+      version: ${{ steps.get_version.outputs.latest }}
+      current: ${{ steps.get_current.outputs.current }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
@@ -44,13 +46,8 @@ jobs:
             exit 0
           fi
 
-          RELEASE_JSON=$(echo "$RAW" | jq '[.[] | select(.prerelease == false) | select(.tag_name | ltrimstr("v") | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)*$"))] | sort_by(.published_at) | reverse | first')
-          LATEST=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty' | sed 's/^v//')
-          BODY=$(echo "$RELEASE_JSON" | jq -r '.body // empty')
+          LATEST=$(echo "$RAW" | jq -r '[.[] | select(.prerelease == false) | select(.tag_name | ltrimstr("v") | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)*$"))] | sort_by(.published_at) | reverse | first | .tag_name // empty' | sed 's/^v//')
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
           echo "Found version: $LATEST"
 
       - name: Get current version from Dockerfile
@@ -60,55 +57,79 @@ jobs:
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT"
 
-      - name: Update Dockerfile and config.yaml
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+      - name: Decide
+        id: decide
         run: |
-          sed -i 's/^ARG BAMBUDDY_VERSION=.*/ARG BAMBUDDY_VERSION=${{ steps.get_version.outputs.latest }}/' bambuddy/Dockerfile
-          sed -i 's/^version: ".*"/version: "${{ steps.get_version.outputs.latest }}"/' bambuddy/config.yaml
+          if [ -n "${{ steps.get_version.outputs.latest }}" ] && [ "${{ steps.get_version.outputs.latest }}" != "${{ steps.get_current.outputs.current }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Update CHANGELOG.md
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+  build-stable:
+    name: Build STABLE
+    needs: check-stable
+    if: needs.check-stable.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      context: bambuddy
+      image: ghcr.io/spegeli/homeassistant-app-bambuddy
+      version: ${{ needs.check-stable.outputs.version }}
+      build_args: BAMBUDDY_VERSION=${{ needs.check-stable.outputs.version }}
+
+  commit-stable:
+    name: Commit STABLE
+    needs: [check-stable, build-stable]
+    if: needs.check-stable.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Apply update and commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PYEOF'
+          VERSION="${{ needs.check-stable.outputs.version }}"
+          BODY=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
+          sed -i 's/^ARG BAMBUDDY_VERSION=.*/ARG BAMBUDDY_VERSION=${{ needs.check-stable.outputs.version }}/' bambuddy/Dockerfile
+          sed -i 's/^version: \".*\"/version: \"${{ needs.check-stable.outputs.version }}\"/' bambuddy/config.yaml
+          BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
-          version = os.environ.get("NEW_VERSION", "")
-          body = os.environ.get("NEW_BODY", "")
           with open("bambuddy/CHANGELOG.md", "w") as f:
-              f.write(f"## {version}\n\n{body}\n\n")
+              f.write(f"## {os.environ['VER']}\n\n{os.environ['BODY']}\n\n")
           print("CHANGELOG.md updated")
           PYEOF
-        env:
-          NEW_VERSION: ${{ steps.get_version.outputs.latest }}
-          NEW_BODY: ${{ steps.get_version.outputs.body }}
-
-      - name: Commit and push
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bambuddy/Dockerfile bambuddy/config.yaml bambuddy/CHANGELOG.md
-          git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} -> ${{ steps.get_version.outputs.latest }}"
+          git commit -m "chore: update BamBuddy ${{ needs.check-stable.outputs.current }} -> ${{ needs.check-stable.outputs.version }}"
           git push
 
-      - name: Trigger image build
-        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build-stable.yml --ref main
-
   # ============================================================
-  # DAILY
+  # DAILY: check -> build -> commit
   # ============================================================
-  update-daily:
-    name: Update DAILY
+  check-daily:
+    name: Check DAILY
     runs-on: ubuntu-latest
     concurrency:
       group: update-daily
       cancel-in-progress: true
     permissions:
-      contents: write
-      actions: write
-
+      contents: read
+    outputs:
+      changed: ${{ steps.decide.outputs.changed }}
+      version: ${{ steps.get_digest.outputs.version }}
+      current: ${{ steps.get_current.outputs.current }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
@@ -153,29 +174,8 @@ jobs:
             RELEASE_TAG="${DATE}-${SHORT}"
           fi
 
-          echo "short=$SHORT" >> $GITHUB_OUTPUT
           echo "version=$RELEASE_TAG" >> $GITHUB_OUTPUT
-          echo "Digest SHA: $SHORT"
           echo "Version: $RELEASE_TAG"
-
-      - name: Get daily changelog from GitHub Releases
-        id: get_changelog
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          REL=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=10")
-          if echo "$REL" | jq -e 'type == "array"' >/dev/null 2>&1; then
-            BODY=$(echo "$REL" | jq -r '[.[] | select(.prerelease == true)] | first | .body // empty')
-          else
-            BODY=""
-          fi
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Get current version from config.yaml
         id: get_current
@@ -184,37 +184,59 @@ jobs:
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT"
 
-      - name: Update config.yaml
-        if: steps.get_digest.outputs.version != '' && steps.get_digest.outputs.version != 'null' && steps.get_digest.outputs.version != steps.get_current.outputs.current
+      - name: Decide
+        id: decide
         run: |
-          sed -i 's/^version: ".*"/version: "${{ steps.get_digest.outputs.version }}"/' bambuddy-daily/config.yaml
+          V="${{ steps.get_digest.outputs.version }}"
+          if [ -n "$V" ] && [ "$V" != "null" ] && [ "$V" != "${{ steps.get_current.outputs.current }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Update CHANGELOG.md
-        if: steps.get_digest.outputs.version != '' && steps.get_digest.outputs.version != 'null' && steps.get_digest.outputs.version != steps.get_current.outputs.current
+  build-daily:
+    name: Build DAILY
+    needs: check-daily
+    if: needs.check-daily.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      context: bambuddy-daily
+      image: ghcr.io/spegeli/homeassistant-app-bambuddy-daily
+      version: ${{ needs.check-daily.outputs.version }}
+
+  commit-daily:
+    name: Commit DAILY
+    needs: [check-daily, build-daily]
+    if: needs.check-daily.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Apply update and commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PYEOF'
+          VERSION="${{ needs.check-daily.outputs.version }}"
+          BODY=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
+          sed -i 's/^version: \".*\"/version: \"${{ needs.check-daily.outputs.version }}\"/' bambuddy-daily/config.yaml
+          BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
-          version = os.environ.get("NEW_VERSION", "")
-          body = os.environ.get("NEW_BODY", "")
           with open("bambuddy-daily/CHANGELOG.md", "w") as f:
-              f.write(f"## {version}\n\n{body}\n\n")
+              f.write(f"## {os.environ['VER']}\n\n{os.environ['BODY']}\n\n")
           print("CHANGELOG.md updated")
           PYEOF
-        env:
-          NEW_VERSION: ${{ steps.get_digest.outputs.version }}
-          NEW_BODY: ${{ steps.get_changelog.outputs.body }}
-
-      - name: Commit and push
-        if: steps.get_digest.outputs.version != '' && steps.get_digest.outputs.version != 'null' && steps.get_digest.outputs.version != steps.get_current.outputs.current
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore: update BamBuddy Daily ${{ steps.get_current.outputs.current }} -> ${{ steps.get_digest.outputs.version }}"
+          git diff --staged --quiet || git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${{ needs.check-daily.outputs.version }}"
           git push
-
-      - name: Trigger image build
-        if: steps.get_digest.outputs.version != '' && steps.get_digest.outputs.version != 'null' && steps.get_digest.outputs.version != steps.get_current.outputs.current
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build-daily.yml --ref main
