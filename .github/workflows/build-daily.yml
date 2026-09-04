@@ -1,12 +1,6 @@
 name: Build DAILY image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'bambuddy-daily/**'
-      - '.github/workflows/build-daily.yml'
-      - '.github/workflows/_build-image.yml'
   workflow_dispatch:
 
 jobs:
