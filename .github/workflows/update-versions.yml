@@ -50,10 +50,10 @@ jobs:
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
           echo "Found version: $LATEST"
 
-      - name: Get current version from Dockerfile
+      - name: Get current version from config.yaml
         id: get_current
         run: |
-          CURRENT=$(grep '^ARG BAMBUDDY_VERSION=' bambuddy/Dockerfile | sed 's/ARG BAMBUDDY_VERSION=//')
+          CURRENT=$(grep '^version:' bambuddy/config.yaml | sed 's/.*"\(.*\)"/\1/')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT"
 
