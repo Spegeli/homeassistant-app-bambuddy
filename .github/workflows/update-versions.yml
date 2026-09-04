@@ -21,6 +21,7 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout
@@ -89,6 +90,12 @@ jobs:
           git commit -m "chore: update BamBuddy ${{ steps.get_current.outputs.current }} -> ${{ steps.get_version.outputs.latest }}"
           git push
 
+      - name: Trigger image build
+        if: steps.get_version.outputs.latest != '' && steps.get_version.outputs.latest != steps.get_current.outputs.current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-stable.yml --ref main
+
   # ============================================================
   # DAILY
   # ============================================================
@@ -100,6 +107,7 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout
@@ -172,7 +180,7 @@ jobs:
       - name: Get current version from config.yaml
         id: get_current
         run: |
-          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
+          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*\"\(.*\)\"/\1/')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT"
 
@@ -204,3 +212,9 @@ jobs:
           git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
           git diff --staged --quiet || git commit -m "chore: update BamBuddy Daily ${{ steps.get_current.outputs.current }} -> ${{ steps.get_digest.outputs.version }}"
           git push
+
+      - name: Trigger image build
+        if: steps.get_digest.outputs.version != '' && steps.get_digest.outputs.version != 'null' && steps.get_digest.outputs.version != steps.get_current.outputs.current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-daily.yml --ref main

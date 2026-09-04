@@ -1,0 +1,20 @@
+name: Build STABLE image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bambuddy/**'
+      - '.github/workflows/build-stable.yml'
+      - '.github/workflows/_build-image.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      context: bambuddy
+      image: ghcr.io/spegeli/addon-bambuddy
+    permissions:
+      contents: read
+      packages: write
