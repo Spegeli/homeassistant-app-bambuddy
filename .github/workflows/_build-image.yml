@@ -78,8 +78,6 @@ jobs:
           provenance: false
           build-args: BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
 
       - name: Export digest
         run: |
