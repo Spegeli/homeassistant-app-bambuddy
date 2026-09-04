@@ -10,12 +10,16 @@ LABEL org.opencontainers.image.licenses="MIT License"
 WORKDIR /app
 
 # Install system dependencies
+# iproute2 replaces the BusyBox `ip` applet, which does not support `-j`.
+# Without it network interface detection silently falls back to a path that
+# cannot see IP aliases, so virtual printers cannot be bound to them.
 RUN apk add --no-cache \
   build-base \
   ca-certificates \
   py3-opencv \
   curl \
-  ffmpeg
+  ffmpeg \
+  iproute2
 
 # Install Python dependencies with cache mount
 COPY --from=builder /app/requirements.txt ./
