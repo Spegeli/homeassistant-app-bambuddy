@@ -14,7 +14,7 @@ jobs:
     uses: ./.github/workflows/_build-image.yml
     with:
       context: bambuddy
-      image: ghcr.io/spegeli/addon-bambuddy
+      image: ghcr.io/spegeli/homeassistant-app-bambuddy
     permissions:
       contents: read
       packages: write
