@@ -13,14 +13,31 @@ on:
         required: false
         type: string
         default: ''
-      build_args:
-        required: false
-        type: string
-        default: ''
 
 jobs:
+  prepare:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Resolve version
+        id: v
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*"\(.*\)"/\1/')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
   build:
     name: Build ${{ matrix.platform }}
+    needs: prepare
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -59,7 +76,7 @@ jobs:
           context: ${{ inputs.context }}
           platforms: ${{ matrix.platform }}
           provenance: false
-          build-args: ${{ inputs.build_args }}
+          build-args: BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
@@ -80,27 +97,13 @@ jobs:
 
   merge:
     name: Merge manifest
-    needs: [build]
+    needs: [prepare, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4.2.2
-
-      - name: Resolve version
-        id: version
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*"\(.*\)"/\1/')
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
-
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
@@ -122,9 +125,9 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
-            -t ${{ inputs.image }}:${{ steps.version.outputs.version }} \
+            -t ${{ inputs.image }}:${{ needs.prepare.outputs.version }} \
             -t ${{ inputs.image }}:latest \
             $(printf '${{ inputs.image }}@sha256:%s ' *)
 
       - name: Inspect
-        run: docker buildx imagetools inspect ${{ inputs.image }}:${{ steps.version.outputs.version }}
+        run: docker buildx imagetools inspect ${{ inputs.image }}:${{ needs.prepare.outputs.version }}

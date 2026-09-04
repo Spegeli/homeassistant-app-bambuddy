@@ -1,5 +1,8 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
-ARG BAMBUDDY_VERSION=1.2.5.5
+# BAMBUDDY_VERSION is injected at build time from bambuddy/config.yaml's version:
+# field (via --build-arg in the build workflow) — config.yaml is the single
+# source of truth. A bare `docker build` needs --build-arg BAMBUDDY_VERSION=<v>.
+ARG BAMBUDDY_VERSION
 
 FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION} AS builder
 FROM ghcr.io/home-assistant/base-python:3.14-alpine3.23
