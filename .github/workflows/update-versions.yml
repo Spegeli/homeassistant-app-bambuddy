@@ -102,7 +102,7 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
           sed -i 's/^ARG BAMBUDDY_VERSION=.*/ARG BAMBUDDY_VERSION=${{ needs.check-stable.outputs.version }}/' bambuddy/Dockerfile
-          sed -i 's/^version: \".*\"/version: \"${{ needs.check-stable.outputs.version }}\"/' bambuddy/config.yaml
+          sed -i 's/^version: ".*"/version: "${{ needs.check-stable.outputs.version }}"/' bambuddy/config.yaml
           BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
           with open("bambuddy/CHANGELOG.md", "w") as f:
@@ -180,7 +180,7 @@ jobs:
       - name: Get current version from config.yaml
         id: get_current
         run: |
-          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*\"\(.*\)\"/\1/')
+          CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT"
 
@@ -228,7 +228,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
-          sed -i 's/^version: \".*\"/version: \"${{ needs.check-daily.outputs.version }}\"/' bambuddy-daily/config.yaml
+          sed -i 's/^version: ".*"/version: "${{ needs.check-daily.outputs.version }}"/' bambuddy-daily/config.yaml
           BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
           with open("bambuddy-daily/CHANGELOG.md", "w") as f:

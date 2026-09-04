@@ -96,7 +96,7 @@ jobs:
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
           else
-            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*\"\(.*\)\"/\1/')
+            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*"\(.*\)"/\1/')
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION"
