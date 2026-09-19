@@ -16,6 +16,9 @@ rm -rf /app/logs
 ln -s /config/data /app/data
 ln -s /config/logs /app/logs
 
+export DATA_DIR=/config/data
+export LOG_DIR=/config/logs
+
 cd /app
 
 if [ "${debug}" = "true" ]; then
