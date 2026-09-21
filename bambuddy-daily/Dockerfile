@@ -16,7 +16,7 @@ ARG TARGETARCH
 LABEL org.opencontainers.image.title="Home Assistant Add-on: Bambuddy add-on (DAILY)"
 LABEL org.opencontainers.image.description="A powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules."
 LABEL org.opencontainers.image.source="https://github.com/Spegeli/homeassistant-app-bambuddy"
-LABEL org.opencontainers.image.licenses="MIT License"
+LABEL org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
 
 WORKDIR /app
 
