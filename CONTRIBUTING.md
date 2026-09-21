@@ -32,16 +32,25 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 ## Testing locally
 
-You need Docker with Buildx. Build the Stable image. Take the version from `bambuddy/config.yaml`:
+You need Docker with Buildx. Build the Stable image. The version is read from `bambuddy/config.yaml`, so it always matches the current release:
 
 ```bash
 docker buildx build --load -t bambuddy-test \
-  --build-arg BAMBUDDY_VERSION=1.2.5.5 \
+  --build-arg BAMBUDDY_VERSION="$(grep '^version:' bambuddy/config.yaml | cut -d'"' -f2)" \
   --build-arg BUILD_ARCH=amd64 \
   bambuddy/
 ```
 
-For Daily, use the `bambuddy-daily/` folder and its version from `bambuddy-daily/config.yaml`.
+Or the Daily image:
+
+```bash
+docker buildx build --load -t bambuddy-test \
+  --build-arg BAMBUDDY_VERSION="$(grep '^version:' bambuddy-daily/config.yaml | cut -d'"' -f2)" \
+  --build-arg BUILD_ARCH=amd64 \
+  bambuddy-daily/
+```
+
+On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
 
 Start it outside Home Assistant. The run script expects the Supervisor token and the options file, so provide stand-ins:
 
