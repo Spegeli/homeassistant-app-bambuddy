@@ -26,12 +26,10 @@ This Code of Conduct applies to all spaces of this repository: issues, pull requ
 
 ## Reporting
 
-There is no email contact for this project. Please report problems through GitHub:
+There is no email contact for this project, and GitHub offers no private messages. Please report problems through GitHub:
 
-- **Privately:** use **Report content → Report to repository admins** in the ⋯ menu of the comment or issue. Only the maintainer sees this report.
-- **Publicly:** open an issue and mention [@Spegeli](https://github.com/Spegeli).
-
-All reports are handled as confidentially as GitHub allows.
+- **To the maintainer:** open an issue and mention [@Spegeli](https://github.com/Spegeli). Keep sensitive details out of the issue; the maintainer will follow up.
+- **Serious abuse** (harassment, spam, illegal content): use **Report content** in the ⋯ menu of the comment or issue. This report goes to GitHub.
 
 ## Enforcement
 
