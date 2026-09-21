@@ -21,6 +21,14 @@ LABEL org.opencontainers.image.description="A powerful, self-hosted command cent
 LABEL org.opencontainers.image.source="https://github.com/Spegeli/homeassistant-app-bambuddy"
 LABEL org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
 
+# Home Assistant Supervisor metadata (required when not using the HA builder).
+# ARGs declared before FROM are out of scope after it, so re-declare them here.
+ARG BAMBUDDY_VERSION
+ARG BUILD_ARCH
+LABEL io.hass.version="${BAMBUDDY_VERSION}"
+LABEL io.hass.type="app"
+LABEL io.hass.arch="${BUILD_ARCH}"
+
 WORKDIR /app
 
 # jq + xz-utils bootstrap s6-overlay and bashio; iproute2 gives the real `ip`

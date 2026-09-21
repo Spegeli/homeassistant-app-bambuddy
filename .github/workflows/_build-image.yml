@@ -48,8 +48,10 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
+            ha_arch: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
+            ha_arch: aarch64
 
     steps:
       - name: Prepare
@@ -76,7 +78,9 @@ jobs:
           context: ${{ inputs.context }}
           platforms: ${{ matrix.platform }}
           provenance: false
-          build-args: BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
+          build-args: |
+            BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
+            BUILD_ARCH=${{ matrix.ha_arch }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
