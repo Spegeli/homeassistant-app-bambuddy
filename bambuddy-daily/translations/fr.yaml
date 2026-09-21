@@ -1,0 +1,19 @@
+configuration:
+  debug:
+    name: Débogage
+    description: Active les messages de débogage
+  trusted_frame_origins:
+    name: URL d'origine autorisées
+    description: "Format : http:// ou https:// suivi d'une adresse IP ou d'un domaine, éventuellement avec :PORT. Exemples : http://192.168.1.1:8123 | https://192.168.1.1 | http://homeassistant.local:8123 | https://mon-domaine.fr - Plus d'infos : https://wiki.bambuddy.cool/getting-started/docker/#environment-variables"
+  enable_share:
+    name: Activer le stockage Share
+    description: "Monte le répertoire /share de Home Assistant dans BamBuddy. Nécessaire pour utiliser un stockage réseau (NAS, USB, partages SMB/NFS) ajouté via Paramètres -> Système -> Stockage de HA comme dossier externe dans le gestionnaire de fichiers de BamBuddy. Accès en lecture/écriture - la lecture seule se configure par dossier dans BamBuddy."
+  enable_media:
+    name: Activer le stockage Media
+    description: "Monte le répertoire /media de Home Assistant dans BamBuddy. Nécessaire pour utiliser un stockage réseau de type média ajouté via Paramètres -> Système -> Stockage de HA comme dossier externe dans le gestionnaire de fichiers de BamBuddy. Accès en lecture/écriture - la lecture seule se configure par dossier dans BamBuddy."
+  use_system_trust_store:
+    name: Utiliser le magasin de certificats système
+    description: "Activez cette option pour utiliser un certificat CA personnalisé pour les connexions HTTPS (par ex. vers une instance Home Assistant avec un certificat auto-signé). Placez votre certificat CA (fichier .crt) dans le dossier addon_configs (File editor -> addon_configs -> [slug_de_votre_addon]) et saisissez le nom du fichier dans le champ ci-dessous."
+  certfile:
+    name: Nom du fichier de certificat CA
+    description: "Nom du fichier du certificat CA (.crt) placé dans le dossier addon_configs. Par défaut : custom_ca.crt"

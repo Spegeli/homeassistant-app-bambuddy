@@ -21,7 +21,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **New or changed options** need all of these, in the same order as in `config.yaml`:
 - `options` and `schema` in `config.yaml`
-- `translations/en.yaml` and `translations/de.yaml`
+- every file in `translations/` (currently `en`, `de`, `fr`, `es`, `it`)
 - the options section in `DOCS.md`
 
 **Runtime settings** (paths, environment variables, option handling) belong in `rootfs/etc/services.d/bambuddy/run`. Keep `exec uvicorn ...` as the last line.
