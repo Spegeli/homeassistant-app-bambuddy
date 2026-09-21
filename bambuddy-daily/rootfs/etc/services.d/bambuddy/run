@@ -29,10 +29,15 @@ fi
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
 
-# Timezone from Home Assistant Supervisor
+# Timezone from Home Assistant Supervisor (best-effort; never fatal).
 # Bambuddy reads TZ via zoneinfo; without it local-day logic and photo
-# filenames run in UTC. Fall back to UTC if the lookup fails.
-TZ=$(curl -s --max-time 5 -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "http://supervisor/info" | jq -r '.data.timezone // empty')
+# filenames run in UTC. Guarded with || true so a failed/timed-out lookup
+# under bashio's set -e -o pipefail cannot abort startup.
+TZ_RESP="$(curl -s --max-time 5 -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "http://supervisor/info" 2>/dev/null || true)"
+TZ=""
+if [ -n "${TZ_RESP}" ]; then
+  TZ="$(echo "${TZ_RESP}" | jq -r '.data.timezone // empty' 2>/dev/null || true)"
+fi
 export TZ="${TZ:-UTC}"
 bashio::log.info "Setting TZ: ${TZ}"
 
