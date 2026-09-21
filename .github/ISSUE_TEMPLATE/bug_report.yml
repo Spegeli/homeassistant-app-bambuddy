@@ -1,0 +1,107 @@
+name: Bug report
+description: Report a problem with the Home Assistant app (installation, startup, configuration, updates).
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem!
+
+        **This repository only packages BamBuddy as a Home Assistant app.**
+        Bugs in BamBuddy itself (printer handling, UI, archive, camera, virtual printer behaviour, ...) belong in the upstream project:
+        https://github.com/maziggy/bambuddy/issues
+
+        If you are unsure, check whether the same problem also happens with the plain BamBuddy Docker image.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This is a problem with the Home Assistant app packaging (install, start, update, options, data persistence), not a bug in BamBuddy itself.
+          required: true
+        - label: I searched the existing issues and this has not been reported yet.
+          required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Channel
+      options:
+        - Stable
+        - Daily
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: Shown on the app page in Home Assistant.
+      placeholder: "1.2.5.5"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: Settings → About (Core, Supervisor and OS versions).
+      placeholder: "Core 2026.9.2 / Supervisor 2026.09.1 / OS 18.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: Installation type
+      options:
+        - Home Assistant OS
+        - Home Assistant Supervised
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture
+      options:
+        - aarch64 (e.g. Raspberry Pi 4/5, Home Assistant Green/Yellow)
+        - amd64 (x86-64, e.g. NUC, VM)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+  - type: textarea
+    id: options
+    attributes:
+      label: App configuration
+      description: Your app options (Configuration tab → ⋮ → Edit in YAML). Remove anything private.
+      render: yaml
+  - type: textarea
+    id: logs
+    attributes:
+      label: App log
+      description: Log tab of the app. Please include the full startup, not only the last line.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help (screenshots, Supervisor log lines, what changed recently, ...).

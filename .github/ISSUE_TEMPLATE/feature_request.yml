@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an improvement to the Home Assistant app packaging.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This repository only packages BamBuddy as a Home Assistant app.**
+        Feature requests for BamBuddy itself (new printer features, UI, integrations, ...) belong in the upstream project:
+        https://github.com/maziggy/bambuddy/issues
+
+        Good fits here: new app options, Home Assistant integration of the app, installation/update behaviour, documentation of the app.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This request is about the Home Assistant app packaging, not a feature of BamBuddy itself.
+          required: true
+        - label: I searched the existing issues and this has not been requested yet.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What are you trying to do, and what is missing or inconvenient today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like the app to behave?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: BamBuddy bug or feature request
+    url: https://github.com/maziggy/bambuddy/issues
+    about: Problems or ideas concerning BamBuddy itself (not the Home Assistant packaging) belong in the upstream project.
+  - name: BamBuddy documentation
+    url: https://wiki.bambuddy.cool
+    about: Setup guides, features, virtual printer ports and FAQ for BamBuddy.
