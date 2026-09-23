@@ -135,7 +135,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: ./.github/workflows/_build-image.yml
+    uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy
       image: ghcr.io/spegeli/homeassistant-app-bambuddy
@@ -349,7 +349,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: ./.github/workflows/_build-image.yml
+    uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy-daily
       image: ghcr.io/spegeli/homeassistant-app-bambuddy-daily
