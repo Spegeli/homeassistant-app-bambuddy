@@ -177,9 +177,9 @@ def check_upstream_digest(channel):
         return
     path = channel / "upstream.digest"
     if not path.is_file():
-        # Not a failure: the next Auto-Update run builds, tests and pins it.
+        # Not a failure: the next Auto-update run builds, tests and pins it.
         # Manual builds of this channel fail loudly until then.
-        print("  note upstream.digest missing - the next Auto-Update run pins it")
+        print("  note upstream.digest missing - the next Auto-update run pins it")
         return
     digest = path.read_text(encoding="utf-8").strip()
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
