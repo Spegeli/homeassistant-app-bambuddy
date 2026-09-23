@@ -20,7 +20,7 @@ the run/finish shebangs and line endings, `exec uvicorn` as the last line of
 `run`, the `io.hass.*` labels, the blanked `CMD`, that every file under
 `rootfs/` is actually covered by a `COPY` instruction, and - for daily - that
 `upstream.digest` is `sha256:` plus 64 hex characters (a missing file is only a
-note: the next Auto-Update run pins it).
+note: the next Auto-update run pins it).
 
 ## Stage 2 - container tests (needs Docker)
 
@@ -71,7 +71,7 @@ both scripts). It is called by:
 - `test.yml` - manual only (Actions -> Test -> Run workflow), with a channel
   choice and a switch for the container stage. Nothing runs on a push, so small
   commits do not each trigger a build.
-- `update-versions.yml` - between `check` and `build`, so a failing test means
+- `auto-update.yml` - between `check` and `build`, so a failing test means
   nothing is pushed to GHCR and `config.yaml` is never bumped
 - `build.yml` - before the manual build; untick `run_tests` to skip
 
