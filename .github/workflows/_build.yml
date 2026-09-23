@@ -130,6 +130,9 @@ jobs:
       - name: Create and push manifest list
         working-directory: /tmp/digests
         run: |
+          # The word splitting is the point here: one file per architecture
+          # digest, expanded into separate arguments for imagetools create.
+          # shellcheck disable=SC2046
           docker buildx imagetools create \
             -t ${{ inputs.image }}:${{ needs.prepare.outputs.version }} \
             -t ${{ inputs.image }}:latest \
