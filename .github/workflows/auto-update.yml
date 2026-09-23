@@ -13,9 +13,6 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
 
   # ============================================================
@@ -36,7 +33,7 @@ jobs:
       current: ${{ steps.get_current.outputs.current }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7
 
       - name: Get latest stable version from GitHub Releases
         id: get_version
@@ -158,7 +155,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7
 
       - name: Apply update and commit
         env:
@@ -234,7 +231,7 @@ jobs:
       current: ${{ steps.get_current.outputs.current }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7
 
       - name: Get latest daily digest and version
         id: get_digest
@@ -398,7 +395,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7
 
       - name: Apply update and commit
         env:
