@@ -1,9 +1,11 @@
 name: Test
 
-# Manual only, like the two build workflows. Small commits should not each
-# trigger a container build, so the tests run when you decide they should.
-# They still run automatically where they act as a gate: in update-versions
-# before anything is pushed or committed, and in build-stable / build-daily.
+run-name: ${{ inputs.smoke && format('Test {0}', inputs.channel) || format('Test {0} (lint only)', inputs.channel) }}
+
+# Manual only, like the build workflow. Small commits should not each trigger
+# a container build, so the tests run when you decide they should. They still
+# run automatically where they act as a gate: in update-versions before
+# anything is pushed or committed, and in build.yml before it publishes.
 
 on:
   workflow_dispatch:

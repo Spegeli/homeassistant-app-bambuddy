@@ -1,0 +1,79 @@
+name: Build image
+
+# Manual only. Replaces the former build-stable.yml / build-daily.yml: one
+# dialog, channel picked in the dropdown. The run list still shows which
+# channel was built, because run-name carries it.
+#
+# Versions are bumped by update-versions.yml, which builds and commits on its
+# own. Use this workflow after changing the Dockerfile or rootfs without a
+# version change - nothing rebuilds automatically then.
+
+run-name: ${{ inputs.run_tests && format('Build {0}', inputs.channel) || format('Build {0} (no tests)', inputs.channel) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Which channel to build and push"
+        type: choice
+        options: [both, stable, daily]
+        default: both
+      run_tests:
+        description: "Run the tests first (lint and container tests)"
+        type: boolean
+        default: true
+
+jobs:
+  test-stable:
+    name: Test STABLE
+    if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'stable')
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy
+      smoke: true
+    permissions:
+      contents: read
+
+  build-stable:
+    name: Build STABLE
+    needs: test-stable
+    # always() keeps this reachable when the test job was skipped (run_tests
+    # off, or the other channel selected); a real test failure still stops it.
+    if: >-
+      always()
+      && (inputs.channel == 'both' || inputs.channel == 'stable')
+      && needs.test-stable.result != 'failure'
+      && needs.test-stable.result != 'cancelled'
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      context: bambuddy
+      image: ghcr.io/spegeli/homeassistant-app-bambuddy
+    permissions:
+      contents: read
+      packages: write
+
+  test-daily:
+    name: Test DAILY
+    if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'daily')
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy-daily
+      smoke: true
+    permissions:
+      contents: read
+
+  build-daily:
+    name: Build DAILY
+    needs: test-daily
+    if: >-
+      always()
+      && (inputs.channel == 'both' || inputs.channel == 'daily')
+      && needs.test-daily.result != 'failure'
+      && needs.test-daily.result != 'cancelled'
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      context: bambuddy-daily
+      image: ghcr.io/spegeli/homeassistant-app-bambuddy-daily
+    permissions:
+      contents: read
+      packages: write

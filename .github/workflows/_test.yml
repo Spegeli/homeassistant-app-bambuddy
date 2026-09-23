@@ -71,7 +71,7 @@ jobs:
           if [ -z "${VERSION}" ]; then
             VERSION=$(grep -E '^version:' ${{ inputs.context }}/config.yaml | sed -E 's/version:[[:space:]]*"?([^"]+)"?/\1/')
           fi
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Testing ${{ inputs.context }} ${VERSION}"
 
       - name: Set up Docker Buildx
