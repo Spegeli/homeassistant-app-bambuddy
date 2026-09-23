@@ -1,0 +1,8 @@
+{
+  "trusted_frame_origins": ["http://ha.test:8123", "https://example.com"],
+  "enable_share": true,
+  "enable_media": true,
+  "use_system_trust_store": true,
+  "certfile": "custom_ca.crt",
+  "debug": true
+}

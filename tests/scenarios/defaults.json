@@ -1,0 +1,8 @@
+{
+  "trusted_frame_origins": ["http://homeassistant.local:8123"],
+  "enable_share": false,
+  "enable_media": false,
+  "use_system_trust_store": false,
+  "certfile": "custom_ca.crt",
+  "debug": false
+}
