@@ -1,0 +1,43 @@
+name: Test
+
+# Manual only, like the two build workflows. Small commits should not each
+# trigger a container build, so the tests run when you decide they should.
+# They still run automatically where they act as a gate: in update-versions
+# before anything is pushed or committed, and in build-stable / build-daily.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Which channel to test"
+        type: choice
+        options: [both, stable, daily]
+        default: both
+      smoke:
+        description: "Also build the image and run the container tests"
+        type: boolean
+        default: true
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stable:
+    name: STABLE
+    if: inputs.channel == 'both' || inputs.channel == 'stable'
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy
+      smoke: ${{ inputs.smoke == true || inputs.smoke == 'true' }}
+
+  daily:
+    name: DAILY
+    if: inputs.channel == 'both' || inputs.channel == 'daily'
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy-daily
+      smoke: ${{ inputs.smoke == true || inputs.smoke == 'true' }}

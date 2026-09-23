@@ -1,0 +1,99 @@
+name: Test (reusable)
+
+# Two stages, both scoped to one channel:
+#   lint  - static checks, no Docker, a few seconds
+#   smoke - builds the image locally (amd64, never pushed) and boots it once per
+#           scenario against a mock Supervisor
+#
+# The image is deliberately built here instead of pulled: a failing test must
+# not leave a tag behind in GHCR, and the hourly auto-update would otherwise
+# publish a new broken image every hour until someone fixes it.
+
+on:
+  workflow_call:
+    inputs:
+      context:
+        description: "Channel directory (bambuddy or bambuddy-daily)"
+        required: true
+        type: string
+      version:
+        description: "Version to build; defaults to the channel's config.yaml"
+        required: false
+        type: string
+      smoke:
+        description: "Run the container smoke tests as well"
+        required: false
+        default: true
+        type: boolean
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint ${{ inputs.context }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Static checks
+        run: python3 tests/lint.py ${{ inputs.context }}
+
+      - name: Shell syntax
+        run: |
+          bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/run
+          bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/finish
+          bash -n tests/smoke.sh
+          bash -n tests/image-checks.sh
+
+  smoke:
+    name: Smoke ${{ inputs.context }}
+    needs: lint
+    if: inputs.smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "${VERSION}" ]; then
+            VERSION=$(grep -E '^version:' ${{ inputs.context }}/config.yaml | sed -E 's/version:[[:space:]]*"?([^"]+)"?/\1/')
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Testing ${{ inputs.context }} ${VERSION}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # No cache on purpose: a stale cache once produced an image tagged with a
+      # new version that still contained the old BamBuddy.
+      - name: Build image (amd64, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          provenance: false
+          tags: bambuddy:test
+          build-args: |
+            BAMBUDDY_VERSION=${{ steps.version.outputs.version }}
+            BUILD_ARCH=amd64
+
+      - name: Image checks
+        run: bash tests/image-checks.sh ${{ inputs.context }} bambuddy:test "${{ steps.version.outputs.version }}"
+
+      - name: Smoke tests
+        run: bash tests/smoke.sh bambuddy:test
