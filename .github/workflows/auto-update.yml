@@ -23,7 +23,7 @@ jobs:
   # ============================================================
   check-stable:
     name: Check STABLE
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: update-stable
       cancel-in-progress: true
@@ -110,7 +110,7 @@ jobs:
     name: Block STABLE on test failure
     needs: [check-stable, test-stable]
     if: always() && needs.test-stable.result == 'failure'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:
@@ -153,7 +153,7 @@ jobs:
     name: Commit STABLE
     needs: [check-stable, build-stable]
     if: needs.check-stable.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -220,7 +220,7 @@ jobs:
   # ============================================================
   check-daily:
     name: Check DAILY
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: update-daily
       cancel-in-progress: true
@@ -349,7 +349,7 @@ jobs:
     name: Block DAILY on test failure
     needs: [check-daily, test-daily]
     if: always() && needs.test-daily.result == 'failure'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:
@@ -393,7 +393,7 @@ jobs:
     name: Commit DAILY
     needs: [check-daily, build-daily]
     if: needs.check-daily.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
