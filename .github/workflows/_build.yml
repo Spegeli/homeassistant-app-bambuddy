@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: ''
+      digest:
+        description: "Upstream base digest (daily); defaults to <context>/upstream.digest"
+        required: false
+        type: string
+        default: ''
 
 jobs:
   prepare:
@@ -24,20 +29,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      digest_arg: ${{ steps.v.outputs.digest_arg }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Resolve version
+      - name: Resolve version and upstream digest
         id: v
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION=$(grep '^version:' "${{ inputs.context }}/config.yaml" | sed 's/.*"\(.*\)"/\1/')
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
+        run: bash .github/scripts/resolve-build-args.sh "${{ inputs.context }}" "${{ inputs.version }}" "${{ inputs.digest }}"
 
   build:
     name: Build ${{ matrix.platform }}
@@ -82,9 +81,11 @@ jobs:
           context: ${{ inputs.context }}
           platforms: ${{ matrix.platform }}
           provenance: false
+          # digest_arg is empty for stable; build-push-action drops empty lines.
           build-args: |
             BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
             BUILD_ARCH=${{ matrix.ha_arch }}
+            ${{ needs.prepare.outputs.digest_arg }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
