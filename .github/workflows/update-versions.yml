@@ -222,6 +222,7 @@ jobs:
     outputs:
       changed: ${{ steps.decide.outputs.changed == 'true' && steps.blocked.outputs.blocked != 'true' }}
       version: ${{ steps.get_digest.outputs.version }}
+      digest: ${{ steps.get_digest.outputs.digest }}
       current: ${{ steps.get_current.outputs.current }}
     steps:
       - name: Checkout
@@ -236,6 +237,7 @@ jobs:
             | jq -r '.token')
 
           DIGEST=$(curl -sI --retry 3 --retry-delay 5 --retry-all-errors -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
             -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
             -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
             "https://ghcr.io/v2/maziggy/bambuddy/manifests/daily" \
@@ -247,6 +249,15 @@ jobs:
           fi
 
           SHORT=$(echo "$DIGEST" | cut -c8-15)
+
+          # The multi-arch index digest of :daily at this moment. Test and build
+          # pin their base to it, and commit-daily records it next to the
+          # version, so a later manual build reproduces exactly this stand.
+          if ! echo "$DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "ERROR: unexpected digest format: $DIGEST"
+            exit 1
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
           REL=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
             -H "Authorization: Bearer $GH_TOKEN" \
@@ -281,11 +292,18 @@ jobs:
         id: decide
         run: |
           V="${{ steps.get_digest.outputs.version }}"
-          if [ -n "$V" ] && [ "$V" != "null" ] && [ "$V" != "${{ steps.get_current.outputs.current }}" ]; then
+          # A missing or broken upstream.digest counts as a change too: then the
+          # current :daily is built, tested and pinned together with its version.
+          # This bootstraps the file and heals it if it is ever deleted.
+          PINNED=true
+          grep -Eqx 'sha256:[0-9a-f]{64}' bambuddy-daily/upstream.digest 2>/dev/null || PINNED=false
+          if [ -n "$V" ] && [ "$V" != "null" ] \
+             && { [ "$V" != "${{ steps.get_current.outputs.current }}" ] || [ "$PINNED" = false ]; }; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "upstream.digest pinned: $PINNED"
 
       - name: Skip a version that already failed its tests
         id: blocked
@@ -316,6 +334,7 @@ jobs:
     with:
       context: bambuddy-daily
       version: ${{ needs.check-daily.outputs.version }}
+      digest: ${{ needs.check-daily.outputs.digest }}
       smoke: true
 
   block-daily:
@@ -360,6 +379,7 @@ jobs:
       context: bambuddy-daily
       image: ghcr.io/spegeli/homeassistant-app-bambuddy-daily
       version: ${{ needs.check-daily.outputs.version }}
+      digest: ${{ needs.check-daily.outputs.digest }}
 
   commit-daily:
     name: Commit DAILY
@@ -389,6 +409,12 @@ jobs:
           # already pushed, so every hourly run would push it again.
           grep -qxF "version: \"${VERSION}\"" bambuddy-daily/config.yaml \
             || { echo "::error::version bump to ${VERSION} did not apply to bambuddy-daily/config.yaml"; exit 1; }
+          # Record the upstream stand this version was tested and built from, in
+          # the same commit as the version. Manual builds read it from here.
+          DIGEST="${{ needs.check-daily.outputs.digest }}"
+          grep -Eqx 'sha256:[0-9a-f]{64}' <<<"${DIGEST}" \
+            || { echo "::error::invalid upstream digest '${DIGEST}'"; exit 1; }
+          echo "${DIGEST}" > bambuddy-daily/upstream.digest
           BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
           # Daily keeps only the latest release notes (overwrite on purpose).
@@ -399,6 +425,11 @@ jobs:
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
-          git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${{ needs.check-daily.outputs.version }}"
+          git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md bambuddy-daily/upstream.digest
+          if [ "${{ needs.check-daily.outputs.current }}" = "${VERSION}" ]; then
+            # Same version, only the missing digest was pinned (bootstrap/heal).
+            git commit -m "chore: pin BamBuddy Daily ${VERSION} to upstream ${DIGEST:7:12}"
+          else
+            git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${VERSION}"
+          fi
           git push
