@@ -119,6 +119,27 @@ for scenario in "${SCENARIOS[@]}"; do
     -v "$(host_path "${RUNDIR}/data/options.json")":/mock/options.json:ro \
     bambuddy-smoke-mock-image >/dev/null
 
+  # The run script asks the Supervisor for its options within a second of
+  # boot. A mock that is still starting makes every bashio::config call fail
+  # and every option block get skipped - locally the mock was always fast
+  # enough, on the GitHub runner it was not. Wait until it really answers.
+  mock_ready=0
+  for _ in $(seq 1 60); do
+    if docker exec "${MOCK}" python3 -c \
+        'import urllib.request; urllib.request.urlopen("http://127.0.0.1/addons/self/options/config", timeout=1)' \
+        >/dev/null 2>&1; then
+      mock_ready=1
+      break
+    fi
+    sleep 0.5
+  done
+  if [ "${mock_ready}" != 1 ]; then
+    problem "Supervisor mock did not come up within 30 s"
+    docker logs "${MOCK}" 2>&1 | tail -10
+    cleanup
+    continue
+  fi
+
   docker run -d --name "${APP}" --network "${NET}" -p "${PORT}:8000" \
     -e SUPERVISOR_API=http://${MOCK} \
     -e SUPERVISOR_TOKEN=smoke-test \
