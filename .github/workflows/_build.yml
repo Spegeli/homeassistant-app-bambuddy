@@ -99,7 +99,7 @@ jobs:
           # GHCR shows the description from the manifest annotation, not from
           # the Dockerfile label (see resolve-build-args.sh).
           annotations: |
-            manifest:org.opencontainers.image.description=${{ needs.prepare.outputs.description }} — ${{ matrix.tag_arch }} image
+            manifest:org.opencontainers.image.description=${{ needs.prepare.outputs.description }} · ${{ matrix.tag_arch }} image
           # digest_arg is empty for stable; build-push-action drops empty lines.
           build-args: |
             BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
