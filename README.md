@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="https://github.com/Spegeli/homeassistant-app-bambuddy/blob/main/logo.png?raw=true" alt="Bambuddy Logo" width="300">
+  <img src="https://github.com/Spegeli/homeassistant-app-bambuddy/blob/main/logo.png?raw=true" alt="BamBuddy Logo" width="300">
 </p>
 
-# 🚀 Bambuddy – Home Assistant App
+# 🚀 BamBuddy – Home Assistant App
 
 <p align="center">
-  <a href="https://github.com/maziggy/bambuddy">Bambuddy</a>, delivered as a first-class Home Assistant App for easy installation and updates.
+  <a href="https://github.com/maziggy/bambuddy">BamBuddy</a>, delivered as a first-class Home Assistant App for easy installation and updates.
 </p>
 <p align="center">
   <strong>Your printers. No cloud. Your rules.</strong><br>
@@ -76,7 +76,7 @@ All data (print archive, settings, logs) is stored persistently in the `addon_co
  
 ### HA Ingress — Not Supported
  
-HA Ingress is currently **not supported** and is not planned. Bambuddy's SPA architecture relies on a stable origin for API calls, routing, PWA scope, and service workers — all of which are incompatible with HA Ingress's rotating per-session subpaths. This would require extensive rewrites to Bambuddy core.
+HA Ingress is currently **not supported** and is not planned. BamBuddy's SPA architecture relies on a stable origin for API calls, routing, PWA scope, and service workers — all of which are incompatible with HA Ingress's rotating per-session subpaths. This would require extensive rewrites to BamBuddy core.
  
 ### Virtual Printer — Potential Port Conflicts
 
