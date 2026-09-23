@@ -28,6 +28,11 @@ jobs:
   prepare:
     name: Resolve version
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Only reads the repo. Without this block the job would inherit the
+    # caller's packages: write.
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.v.outputs.version }}
       digest_arg: ${{ steps.v.outputs.digest_arg }}
@@ -36,14 +41,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Inputs go through env, never into the script text.
       - name: Resolve version and upstream digest
         id: v
-        run: bash .github/scripts/resolve-build-args.sh "${{ inputs.context }}" "${{ inputs.version }}" "${{ inputs.digest }}"
+        env:
+          CONTEXT: ${{ inputs.context }}
+          VERSION: ${{ inputs.version }}
+          DIGEST: ${{ inputs.digest }}
+        run: bash .github/scripts/resolve-build-args.sh "${CONTEXT}" "${VERSION}" "${DIGEST}"
 
   build:
     name: Build ${{ matrix.platform }}
     needs: prepare
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -129,6 +140,7 @@ jobs:
     name: Merge manifest
     needs: [prepare, build]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write

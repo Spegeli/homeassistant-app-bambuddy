@@ -13,6 +13,13 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+# One publishing run at a time, shared with build.yml: overlapping runs would
+# build and push the same tags twice and race each other's commits on main. A
+# run waits for the previous one; it is never cancelled halfway through a push.
+concurrency:
+  group: ghcr-publish
+  cancel-in-progress: false
+
 jobs:
 
   # ============================================================
@@ -21,9 +28,7 @@ jobs:
   check-stable:
     name: Check STABLE
     runs-on: ubuntu-24.04
-    concurrency:
-      group: update-stable
-      cancel-in-progress: true
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: read
@@ -32,8 +37,12 @@ jobs:
       version: ${{ steps.get_version.outputs.latest }}
       current: ${{ steps.get_current.outputs.current }}
     steps:
+      # The current main, not the commit this run was started on: a run that
+      # waited behind another one must see the version that one committed.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
 
       - name: Get latest stable version from GitHub Releases
         id: get_version
@@ -65,10 +74,29 @@ jobs:
 
       - name: Decide
         id: decide
+        env:
+          LATEST: ${{ steps.get_version.outputs.latest }}
+          CURRENT: ${{ steps.get_current.outputs.current }}
         run: |
-          if [ -n "${{ steps.get_version.outputs.latest }}" ] && [ "${{ steps.get_version.outputs.latest }}" != "${{ steps.get_current.outputs.current }}" ]; then
+          if [ -z "${LATEST}" ] || [ "${LATEST}" = "${CURRENT}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Upstream publishes the GitHub release before its image build is done
+          # (1.2.5.5: release 06:37, arm64 image 06:44). Wait until the image has
+          # both architectures, else the test fails at FROM for a version that
+          # is fine.
+          TOKEN=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+            "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" | jq -r '.token')
+          PLATFORMS=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/maziggy/bambuddy/manifests/${LATEST}" \
+            | jq -r '[.manifests[]?.platform | "\(.os)/\(.architecture)"] | join(" ")' 2>/dev/null || true)
+          if grep -qw "linux/amd64" <<<"${PLATFORMS}" && grep -qw "linux/arm64" <<<"${PLATFORMS}"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
+            echo "::notice::BamBuddy ${LATEST} is released, but its image is not complete yet (found: ${PLATFORMS:-nothing}). Trying again next run."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -103,36 +131,6 @@ jobs:
       version: ${{ needs.check-stable.outputs.version }}
       smoke: true
 
-  block-stable:
-    name: Block STABLE on test failure
-    needs: [check-stable, test-stable]
-    if: always() && needs.test-stable.result == 'failure'
-    runs-on: ubuntu-24.04
-    permissions:
-      issues: write
-    steps:
-      - name: Open a blocking issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.check-stable.outputs.version }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          TITLE="Auto-update blocked: stable ${VERSION}"
-          # printf, not a heredoc: inside a YAML block scalar the closing EOF
-          # would be indented and would never terminate the heredoc.
-          BODY=$(printf '%s\n' \
-            "The STABLE auto-update to \`${VERSION}\` was stopped: the tests failed" \
-            "before anything was pushed to GHCR or committed to \`config.yaml\`." \
-            "" \
-            "Failed run: ${RUN_URL}" \
-            "" \
-            "Nothing is broken for users - Home Assistant still serves the previous" \
-            "version. The hourly job skips this version while this issue is open." \
-            "" \
-            "**Close this issue once the cause is fixed**, then the next run picks" \
-            "the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
-
   build-stable:
     name: Build STABLE
     needs: [check-stable, test-stable]
@@ -151,22 +149,31 @@ jobs:
     needs: [check-stable, build-stable]
     if: needs.check-stable.outputs.changed == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      # The current main with full history, so the push below can rebase onto
+      # whatever landed while this run was testing and building.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
 
       - name: Apply update and commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ needs.check-stable.outputs.version }}"
-          BODY=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+          # The release notes go through a file: as a single environment variable
+          # they already come close to Linux's 128 KiB limit per variable.
+          NOTES="${RUNNER_TEMP}/release-notes.md"
+          curl -s --retry 3 --retry-delay 5 --retry-all-errors \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
+            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty' > "${NOTES}"
           sed -i 's/^version: ".*"/version: "${{ needs.check-stable.outputs.version }}"/' bambuddy/config.yaml
           # Fail loudly if the bump did not land (e.g. the version: line was
           # reformatted and sed no longer matches). Silently committing nothing
@@ -177,14 +184,15 @@ jobs:
           # Stable keeps a running changelog: newest version on top, last
           # MAX_SECTIONS versions kept. HA's update dialog shows everything from
           # the "## <new version>" heading down to "## <installed version>".
-          BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
+          NOTES="$NOTES" VER="$VERSION" python3 - <<'PYEOF'
           import os
           import re
 
           MAX_SECTIONS = 15
           path = "bambuddy/CHANGELOG.md"
           ver = os.environ["VER"]
-          body = os.environ.get("BODY", "").replace("\r\n", "\n").replace("\r", "\n").strip()
+          with open(os.environ["NOTES"], encoding="utf-8") as notes:
+              body = notes.read().replace("\r\n", "\n").replace("\r", "\n").strip()
 
           try:
               with open(path, encoding="utf-8") as f:
@@ -210,7 +218,62 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bambuddy/config.yaml bambuddy/CHANGELOG.md
           git commit -m "chore: update BamBuddy ${{ needs.check-stable.outputs.current }} -> ${{ needs.check-stable.outputs.version }}"
-          git push
+          # Both commit jobs run in parallel when both channels update, so the
+          # other one may have pushed in the meantime. Replay onto it.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}), rebasing onto the current ${GITHUB_REF_NAME}"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::could not push the version bump after 3 attempts"
+          exit 1
+
+  block-stable:
+    name: Block STABLE on failure
+    needs: [check-stable, test-stable, build-stable, commit-stable]
+    # Any failure after check - not just a failed test - would otherwise repeat
+    # every hour: test, build and push again while config.yaml stays old.
+    if: >-
+      always()
+      && needs.check-stable.outputs.changed == 'true'
+      && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open a blocking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot find the repository itself.
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.check-stable.outputs.version }}
+          TEST_RESULT: ${{ needs.test-stable.result }}
+          BUILD_RESULT: ${{ needs.build-stable.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Auto-update blocked: stable ${VERSION}"
+          if [ "${TEST_RESULT}" = "failure" ]; then
+            STAGE="the tests failed before anything was pushed to GHCR or committed to \`config.yaml\`."
+            IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
+          elif [ "${BUILD_RESULT}" = "failure" ]; then
+            STAGE="building or pushing the image failed after the tests passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
+            IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
+          else
+            STAGE="the image is in GHCR, but committing the new version to \`config.yaml\` failed."
+            IMPACT="Home Assistant does not offer the update until \`config.yaml\` is bumped."
+          fi
+          BODY=$(printf '%s\n' \
+            "The STABLE auto-update to \`${VERSION}\` was stopped: ${STAGE}" \
+            "" \
+            "Failed run: ${RUN_URL}" \
+            "" \
+            "${IMPACT} The hourly job skips this version while this issue is open." \
+            "" \
+            "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
+          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
 
   # ============================================================
   # DAILY: check -> test -> build -> commit
@@ -218,9 +281,7 @@ jobs:
   check-daily:
     name: Check DAILY
     runs-on: ubuntu-24.04
-    concurrency:
-      group: update-daily
-      cancel-in-progress: true
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: read
@@ -230,8 +291,12 @@ jobs:
       digest: ${{ steps.get_digest.outputs.digest }}
       current: ${{ steps.get_current.outputs.current }}
     steps:
+      # The current main, not the commit this run was started on: a run that
+      # waited behind another one must see the version that one committed.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
 
       - name: Get latest daily digest and version
         id: get_digest
@@ -283,6 +348,14 @@ jobs:
             RELEASE_TAG="${DATE}-${SHORT}"
           fi
 
+          # The tag name comes from upstream and ends up in shell commands, image
+          # tags and commit messages. Accept plain version characters only.
+          if ! [[ "$RELEASE_TAG" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,100}$ ]]; then
+            echo "::warning::Ignoring the upstream prerelease tag, it has unexpected characters: $RELEASE_TAG"
+            echo "version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "Version: $RELEASE_TAG"
 
@@ -300,8 +373,27 @@ jobs:
           # A missing or broken upstream.digest counts as a change too: then the
           # current :daily is built, tested and pinned together with its version.
           # This bootstraps the file and heals it if it is ever deleted.
+          # Whitespace is ignored, as in resolve-build-args.sh and lint.py.
           PINNED=true
-          grep -Eqx 'sha256:[0-9a-f]{64}' bambuddy-daily/upstream.digest 2>/dev/null || PINNED=false
+          PIN=""
+          [ -f bambuddy-daily/upstream.digest ] && PIN=$(tr -d '[:space:]' < bambuddy-daily/upstream.digest)
+          grep -Eqx 'sha256:[0-9a-f]{64}' <<<"${PIN}" || PINNED=false
+          # Upstream deletes untagged images every Sunday. Once :daily has moved
+          # on, the pinned digest has no tag left and goes with the next cleanup;
+          # no build can use it after that, so treat it like a broken pin.
+          if [ "$PINNED" = true ]; then
+            TOKEN=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+              "https://ghcr.io/token?scope=repository:maziggy/bambuddy:pull" | jq -r '.token')
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/vnd.oci.image.index.v1+json" \
+              -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+              "https://ghcr.io/v2/maziggy/bambuddy/manifests/${PIN}" || true)
+            if [ "$STATUS" = "404" ]; then
+              echo "::notice::The pinned upstream image ${PIN:0:19} is gone upstream - re-pinning to the current :daily"
+              PINNED=false
+            fi
+          fi
           if [ -n "$V" ] && [ "$V" != "null" ] \
              && { [ "$V" != "${{ steps.get_current.outputs.current }}" ] || [ "$PINNED" = false ]; }; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -342,36 +434,6 @@ jobs:
       digest: ${{ needs.check-daily.outputs.digest }}
       smoke: true
 
-  block-daily:
-    name: Block DAILY on test failure
-    needs: [check-daily, test-daily]
-    if: always() && needs.test-daily.result == 'failure'
-    runs-on: ubuntu-24.04
-    permissions:
-      issues: write
-    steps:
-      - name: Open a blocking issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.check-daily.outputs.version }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          TITLE="Auto-update blocked: daily ${VERSION}"
-          # printf, not a heredoc: inside a YAML block scalar the closing EOF
-          # would be indented and would never terminate the heredoc.
-          BODY=$(printf '%s\n' \
-            "The DAILY auto-update to \`${VERSION}\` was stopped: the tests failed" \
-            "before anything was pushed to GHCR or committed to \`config.yaml\`." \
-            "" \
-            "Failed run: ${RUN_URL}" \
-            "" \
-            "Nothing is broken for users - Home Assistant still serves the previous" \
-            "version. The hourly job skips this version while this issue is open." \
-            "" \
-            "**Close this issue once the cause is fixed**, then the next run picks" \
-            "the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
-
   build-daily:
     name: Build DAILY
     needs: [check-daily, test-daily]
@@ -391,22 +453,31 @@ jobs:
     needs: [check-daily, build-daily]
     if: needs.check-daily.outputs.changed == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      # The current main with full history, so the push below can rebase onto
+      # whatever landed while this run was testing and building.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
 
       - name: Apply update and commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ needs.check-daily.outputs.version }}"
-          BODY=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+          # The release notes go through a file: as a single environment variable
+          # they already come close to Linux's 128 KiB limit per variable.
+          NOTES="${RUNNER_TEMP}/release-notes.md"
+          curl -s --retry 3 --retry-delay 5 --retry-all-errors \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
+            "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty' > "${NOTES}"
           sed -i 's/^version: ".*"/version: "${{ needs.check-daily.outputs.version }}"/' bambuddy-daily/config.yaml
           # Fail loudly if the bump did not land (e.g. the version: line was
           # reformatted and sed no longer matches). Silently committing nothing
@@ -420,10 +491,11 @@ jobs:
           grep -Eqx 'sha256:[0-9a-f]{64}' <<<"${DIGEST}" \
             || { echo "::error::invalid upstream digest '${DIGEST}'"; exit 1; }
           echo "${DIGEST}" > bambuddy-daily/upstream.digest
-          BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
+          NOTES="$NOTES" VER="$VERSION" python3 - <<'PYEOF'
           import os
           # Daily keeps only the latest release notes (overwrite on purpose).
-          body = os.environ.get("BODY", "").replace("\r\n", "\n").replace("\r", "\n").strip()
+          with open(os.environ["NOTES"], encoding="utf-8") as notes:
+              body = notes.read().replace("\r\n", "\n").replace("\r", "\n").strip()
           with open("bambuddy-daily/CHANGELOG.md", "w", encoding="utf-8", newline="\n") as f:
               f.write(f"## {os.environ['VER']}\n\n{body}\n")
           print("CHANGELOG.md updated")
@@ -432,9 +504,65 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md bambuddy-daily/upstream.digest
           if [ "${{ needs.check-daily.outputs.current }}" = "${VERSION}" ]; then
-            # Same version, only the missing digest was pinned (bootstrap/heal).
+            # Same version, only the digest was (re-)pinned: bootstrap, a broken
+            # file, or the pinned image vanished upstream.
             git commit -m "chore: pin BamBuddy Daily ${VERSION} to upstream ${DIGEST:7:12}"
           else
             git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${VERSION}"
           fi
-          git push
+          # Both commit jobs run in parallel when both channels update, so the
+          # other one may have pushed in the meantime. Replay onto it.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}), rebasing onto the current ${GITHUB_REF_NAME}"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::could not push the version bump after 3 attempts"
+          exit 1
+
+  block-daily:
+    name: Block DAILY on failure
+    needs: [check-daily, test-daily, build-daily, commit-daily]
+    # Any failure after check - not just a failed test - would otherwise repeat
+    # every hour: test, build and push again while config.yaml stays old.
+    if: >-
+      always()
+      && needs.check-daily.outputs.changed == 'true'
+      && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open a blocking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot find the repository itself.
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.check-daily.outputs.version }}
+          TEST_RESULT: ${{ needs.test-daily.result }}
+          BUILD_RESULT: ${{ needs.build-daily.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Auto-update blocked: daily ${VERSION}"
+          if [ "${TEST_RESULT}" = "failure" ]; then
+            STAGE="the tests failed before anything was pushed to GHCR or committed to \`config.yaml\`."
+            IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
+          elif [ "${BUILD_RESULT}" = "failure" ]; then
+            STAGE="building or pushing the image failed after the tests passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
+            IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
+          else
+            STAGE="the image is in GHCR, but committing the new version to \`config.yaml\` failed."
+            IMPACT="Home Assistant does not offer the update until \`config.yaml\` is bumped."
+          fi
+          BODY=$(printf '%s\n' \
+            "The DAILY auto-update to \`${VERSION}\` was stopped: ${STAGE}" \
+            "" \
+            "Failed run: ${RUN_URL}" \
+            "" \
+            "${IMPACT} The hourly job skips this version while this issue is open." \
+            "" \
+            "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
+          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"

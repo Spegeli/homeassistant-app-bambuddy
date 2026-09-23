@@ -3,8 +3,8 @@ name: Test (internal)
 # Reusable workflow (workflow_call), called by test.yml, build.yml and
 # auto-update.yml. Two stages, both scoped to one channel:
 #   lint  - static checks, no Docker, a few seconds
-#   smoke - builds the image locally (amd64, never pushed) and boots it once per
-#           scenario against a mock Supervisor
+#   smoke - builds the image locally for amd64 and arm64 (each natively, never
+#           pushed) and boots it once per scenario against a mock Supervisor
 #
 # The image is deliberately built here instead of pulled: a failing test must
 # not leave a tag behind in GHCR, and the hourly auto-update would otherwise
@@ -35,6 +35,7 @@ jobs:
   lint:
     name: Lint ${{ inputs.context }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -59,30 +60,47 @@ jobs:
           bash -n .github/scripts/resolve-build-args.sh
 
   smoke:
-    name: Smoke ${{ inputs.context }}
+    name: Smoke ${{ inputs.context }} (${{ matrix.arch }})
     needs: lint
     if: inputs.smoke
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both architectures that ship, each built and booted natively: an
+        # arm64-only break (a wheel, the s6 tarball) must not reach Pi users.
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            ha_arch: amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            ha_arch: aarch64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       # Same resolution as _build.yml, so the test builds exactly what the
-      # build would push.
+      # build would push. Inputs go through env, never into the script text.
       - name: Resolve version and upstream digest
         id: version
-        run: bash .github/scripts/resolve-build-args.sh "${{ inputs.context }}" "${{ inputs.version }}" "${{ inputs.digest }}"
+        env:
+          CONTEXT: ${{ inputs.context }}
+          VERSION: ${{ inputs.version }}
+          DIGEST: ${{ inputs.digest }}
+        run: bash .github/scripts/resolve-build-args.sh "${CONTEXT}" "${VERSION}" "${DIGEST}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       # No cache on purpose: a stale cache once produced an image tagged with a
       # new version that still contained the old BamBuddy.
-      - name: Build image (amd64, not pushed)
+      - name: Build image (${{ matrix.arch }}, not pushed)
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
-          platforms: linux/amd64
+          platforms: linux/${{ matrix.arch }}
           push: false
           load: true
           provenance: false
@@ -90,11 +108,14 @@ jobs:
           # digest_arg is empty for stable; build-push-action drops empty lines.
           build-args: |
             BAMBUDDY_VERSION=${{ steps.version.outputs.version }}
-            BUILD_ARCH=amd64
+            BUILD_ARCH=${{ matrix.ha_arch }}
             ${{ steps.version.outputs.digest_arg }}
 
       - name: Image checks
-        run: bash tests/image-checks.sh ${{ inputs.context }} bambuddy:test "${{ steps.version.outputs.version }}"
+        env:
+          CONTEXT: ${{ inputs.context }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash tests/image-checks.sh "${CONTEXT}" bambuddy:test "${VERSION}"
 
       - name: Smoke tests
         run: bash tests/smoke.sh bambuddy:test

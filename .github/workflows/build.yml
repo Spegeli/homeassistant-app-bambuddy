@@ -23,6 +23,12 @@ on:
         type: boolean
         default: true
 
+# One publishing run at a time, shared with auto-update.yml: two runs pushing
+# the same tags would race. A run waits; it is never cancelled mid-push.
+concurrency:
+  group: ghcr-publish
+  cancel-in-progress: false
+
 jobs:
   test-stable:
     name: Test STABLE
