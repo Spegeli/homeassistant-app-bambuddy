@@ -51,14 +51,16 @@ else
 fi
 
 # Release notes live upstream; the full changelog does not fit (512 chars,
-# no markdown), so the description links to it instead.
-NOTES="https://github.com/maziggy/bambuddy/releases/tag/v${VERSION}"
+# no markdown), so the description points to it instead. GHCR renders the
+# field as plain text and does not turn URLs into links, so the address is
+# given without https:// and the parts are separated by " · " to be skimmable.
+NOTES="github.com/maziggy/bambuddy/releases/tag/v${VERSION}"
 if [ -n "${DIGEST}" ]; then
-  DESCRIPTION="BamBuddy ${VERSION} (Daily) for Home Assistant built from upstream daily ${DIGEST:0:19}. Release notes: ${NOTES}"
+  DESCRIPTION="BamBuddy ${VERSION} · Daily · Home Assistant app · upstream ${DIGEST:0:19} · Release notes: ${NOTES}"
 else
-  DESCRIPTION="BamBuddy ${VERSION} (Stable) for Home Assistant. A powerful self-hosted command center for Bambu Lab printers. Release notes: ${NOTES}"
+  DESCRIPTION="BamBuddy ${VERSION} · Stable · Home Assistant app · Release notes: ${NOTES}"
 fi
-# The per-architecture suffix (" — arm64 image") is added later; keep room.
+# The per-architecture suffix (" · arm64 image") is added later; keep room.
 DESCRIPTION="${DESCRIPTION:0:490}"
 echo "description=${DESCRIPTION}" >> "${OUT}"
 echo "Description: ${DESCRIPTION}"
