@@ -1,7 +1,8 @@
 name: Build image (internal)
 
 # Reusable workflow (workflow_call): builds each architecture natively,
-# pushes by digest and merges both into one multi-arch tag. Not runnable on
+# pushes it under its own tag (<version>-amd64, <version>-arm64) and merges
+# both by digest into the multi-arch <version> / latest tag. Not runnable on
 # its own - called by build.yml and by auto-update.yml.
 
 on:
