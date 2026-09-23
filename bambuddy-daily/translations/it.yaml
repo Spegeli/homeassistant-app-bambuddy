@@ -1,7 +1,4 @@
 configuration:
-  debug:
-    name: Debug
-    description: Attiva i messaggi di debug
   trusted_frame_origins:
     name: URL di origine consentiti
     description: "Formato: http:// o https:// seguito da un indirizzo IP o da un dominio, opzionalmente con :PORT. Esempi: http://192.168.1.1:8123 | https://192.168.1.1 | http://homeassistant.local:8123 | https://mio-dominio.it - Maggiori informazioni: https://wiki.bambuddy.cool/getting-started/docker/#environment-variables"
@@ -17,3 +14,6 @@ configuration:
   certfile:
     name: Nome file del certificato CA
     description: "Nome del file del certificato CA (.crt) nella cartella addon_configs. Predefinito: custom_ca.crt"
+  debug:
+    name: Debug
+    description: Attiva i messaggi di debug

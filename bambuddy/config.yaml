@@ -1,20 +1,24 @@
-# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
-name: Bambuddy
+# https://developers.home-assistant.io/docs/apps/configuration/#app-configuration
+name: BamBuddy
 version: "1.2.5.5"
 slug: bambuddy
 stage: stable
-description: Bambuddy is a powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules.
+description: BamBuddy is a powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules.
 url: "https://github.com/Spegeli/homeassistant-app-bambuddy"
+# Prebuilt multi-arch image from GHCR; the Supervisor appends :<version>.
 image: ghcr.io/spegeli/homeassistant-app-bambuddy
 arch:
   - aarch64
   - amd64
-init: false
-timeout: 30
-host_network: true
+init: false            # required for s6-overlay v3
+timeout: 30            # stop timeout, matches upstream's stop_grace_period
+host_network: true     # SSDP printer discovery + the virtual printer's host ports
+# NET_RAW is not in the default capability set; the virtual printer needs it.
 privileged:
   - NET_RAW
-homeassistant_api: true
+homeassistant_api: true  # Core API proxy for the HA integration
+# addon_config survives an uninstall (unlike /data); share/media are always
+# mounted but only exposed when enable_share / enable_media are on.
 map:
   - addon_config:rw
   - share:rw
@@ -35,5 +39,6 @@ schema:
   use_system_trust_store: bool
   certfile: str
   debug: bool
+# Port 8000 is fixed: host_network ignores HA port mappings anyway.
 webui: http://[HOST]:[PORT:8000]
 watchdog: http://[HOST]:[PORT:8000]/health
