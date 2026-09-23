@@ -112,10 +112,14 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
+      # Artifact names carry the channel. Artifacts are shared by the whole
+      # workflow run, and build.yml ("both") and auto-update.yml can build both
+      # channels in one run - with plain "digests-linux-amd64" each merge job
+      # collected the other channel's digests too and failed with "not found".
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -129,12 +133,25 @@ jobs:
       packages: write
 
     steps:
+      # "-linux-" right after the channel keeps "bambuddy" from also matching
+      # "bambuddy-daily".
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: digests-${{ inputs.context }}-linux-*
           merge-multiple: true
+
+      - name: Check digests
+        working-directory: /tmp/digests
+        run: |
+          # Exactly one digest per architecture, or the index would be wrong.
+          count=$(find . -maxdepth 1 -type f | wc -l)
+          if [ "${count}" != "2" ]; then
+            echo "::error::expected 2 digests (amd64 + arm64) for ${{ inputs.context }}, found ${count}"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
