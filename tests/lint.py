@@ -170,6 +170,24 @@ def check_dockerfile(channel):
         ok("Dockerfile COPY covers all {} rootfs files".format(len(files)))
 
 
+def check_upstream_digest(channel):
+    """Daily pins its upstream base by digest (no versioned daily tags upstream)."""
+    name = channel.name
+    if "ARG BAMBUDDY_DIGEST" not in (channel / "Dockerfile").read_text(encoding="utf-8"):
+        return
+    path = channel / "upstream.digest"
+    if not path.is_file():
+        # Not a failure: the next Auto-Update run builds, tests and pins it.
+        # Manual builds of this channel fail loudly until then.
+        print("  note upstream.digest missing - the next Auto-Update run pins it")
+        return
+    digest = path.read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        fail(name, "upstream.digest must be 'sha256:' + 64 hex characters, got '{}'".format(digest))
+    else:
+        ok("upstream.digest {}...".format(digest[:19]))
+
+
 def report_channel_drift(channels):
     """Informational only - Daily is allowed to run ahead of Stable."""
     if len(channels) < 2:
@@ -199,6 +217,7 @@ def main():
         check_translations(channel, config)
         check_scripts(channel)
         check_dockerfile(channel)
+        check_upstream_digest(channel)
 
     report_channel_drift(channels)
 
