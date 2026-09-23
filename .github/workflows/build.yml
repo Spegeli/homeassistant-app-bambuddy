@@ -44,7 +44,7 @@ jobs:
       && (inputs.channel == 'both' || inputs.channel == 'stable')
       && needs.test-stable.result != 'failure'
       && needs.test-stable.result != 'cancelled'
-    uses: ./.github/workflows/_build-image.yml
+    uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy
       image: ghcr.io/spegeli/homeassistant-app-bambuddy
@@ -70,7 +70,7 @@ jobs:
       && (inputs.channel == 'both' || inputs.channel == 'daily')
       && needs.test-daily.result != 'failure'
       && needs.test-daily.result != 'cancelled'
-    uses: ./.github/workflows/_build-image.yml
+    uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy-daily
       image: ghcr.io/spegeli/homeassistant-app-bambuddy-daily
