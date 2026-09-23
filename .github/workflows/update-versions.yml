@@ -11,7 +11,7 @@ env:
 jobs:
 
   # ============================================================
-  # STABLE: check -> build -> commit
+  # STABLE: check -> test -> build -> commit
   # ============================================================
   check-stable:
     name: Check STABLE
@@ -21,8 +21,9 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: read
+      issues: read
     outputs:
-      changed: ${{ steps.decide.outputs.changed }}
+      changed: ${{ steps.decide.outputs.changed == 'true' && steps.blocked.outputs.blocked != 'true' }}
       version: ${{ steps.get_version.outputs.latest }}
       current: ${{ steps.get_current.outputs.current }}
     steps:
@@ -66,9 +67,70 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Skip a version that already failed its tests
+        id: blocked
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A failed test run opens an issue naming the version. Without this
+          # check the hourly cron would rebuild and retest the same broken
+          # version every hour. Closing the issue releases the version again.
+          TITLE="Auto-update blocked: stable ${{ steps.get_version.outputs.latest }}"
+          FOUND=$(gh issue list --state open --search "in:title \"${TITLE}\"" --json title \
+            --jq "[.[] | select(.title == \"${TITLE}\")] | length")
+          if [ "${FOUND}" != "0" ]; then
+            echo "::notice::Skipping ${TITLE} - an open issue still blocks it"
+            echo "blocked=true" >> $GITHUB_OUTPUT
+          else
+            echo "blocked=false" >> $GITHUB_OUTPUT
+          fi
+
+  test-stable:
+    name: Test STABLE
+    needs: check-stable
+    if: needs.check-stable.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy
+      version: ${{ needs.check-stable.outputs.version }}
+      smoke: true
+
+  block-stable:
+    name: Block STABLE on test failure
+    needs: [check-stable, test-stable]
+    if: always() && needs.test-stable.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open a blocking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-stable.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Auto-update blocked: stable ${VERSION}"
+          # printf, not a heredoc: inside a YAML block scalar the closing EOF
+          # would be indented and would never terminate the heredoc.
+          BODY=$(printf '%s\n' \
+            "The STABLE auto-update to \`${VERSION}\` was stopped: the tests failed" \
+            "before anything was pushed to GHCR or committed to \`config.yaml\`." \
+            "" \
+            "Failed run: ${RUN_URL}" \
+            "" \
+            "Nothing is broken for users - Home Assistant still serves the previous" \
+            "version. The hourly job skips this version while this issue is open." \
+            "" \
+            "**Close this issue once the cause is fixed**, then the next run picks" \
+            "the version up again.")
+          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+
   build-stable:
     name: Build STABLE
-    needs: check-stable
+    needs: [check-stable, test-stable]
     if: needs.check-stable.outputs.changed == 'true'
     permissions:
       contents: read
@@ -140,7 +202,7 @@ jobs:
           git push
 
   # ============================================================
-  # DAILY: check -> build -> commit
+  # DAILY: check -> test -> build -> commit
   # ============================================================
   check-daily:
     name: Check DAILY
@@ -150,8 +212,9 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: read
+      issues: read
     outputs:
-      changed: ${{ steps.decide.outputs.changed }}
+      changed: ${{ steps.decide.outputs.changed == 'true' && steps.blocked.outputs.blocked != 'true' }}
       version: ${{ steps.get_digest.outputs.version }}
       current: ${{ steps.get_current.outputs.current }}
     steps:
@@ -218,9 +281,70 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Skip a version that already failed its tests
+        id: blocked
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A failed test run opens an issue naming the version. Without this
+          # check the hourly cron would rebuild and retest the same broken
+          # version every hour. Closing the issue releases the version again.
+          TITLE="Auto-update blocked: daily ${{ steps.get_digest.outputs.version }}"
+          FOUND=$(gh issue list --state open --search "in:title \"${TITLE}\"" --json title \
+            --jq "[.[] | select(.title == \"${TITLE}\")] | length")
+          if [ "${FOUND}" != "0" ]; then
+            echo "::notice::Skipping ${TITLE} - an open issue still blocks it"
+            echo "blocked=true" >> $GITHUB_OUTPUT
+          else
+            echo "blocked=false" >> $GITHUB_OUTPUT
+          fi
+
+  test-daily:
+    name: Test DAILY
+    needs: check-daily
+    if: needs.check-daily.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_test.yml
+    with:
+      context: bambuddy-daily
+      version: ${{ needs.check-daily.outputs.version }}
+      smoke: true
+
+  block-daily:
+    name: Block DAILY on test failure
+    needs: [check-daily, test-daily]
+    if: always() && needs.test-daily.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open a blocking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-daily.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Auto-update blocked: daily ${VERSION}"
+          # printf, not a heredoc: inside a YAML block scalar the closing EOF
+          # would be indented and would never terminate the heredoc.
+          BODY=$(printf '%s\n' \
+            "The DAILY auto-update to \`${VERSION}\` was stopped: the tests failed" \
+            "before anything was pushed to GHCR or committed to \`config.yaml\`." \
+            "" \
+            "Failed run: ${RUN_URL}" \
+            "" \
+            "Nothing is broken for users - Home Assistant still serves the previous" \
+            "version. The hourly job skips this version while this issue is open." \
+            "" \
+            "**Close this issue once the cause is fixed**, then the next run picks" \
+            "the version up again.")
+          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+
   build-daily:
     name: Build DAILY
-    needs: check-daily
+    needs: [check-daily, test-daily]
     if: needs.check-daily.outputs.changed == 'true'
     permissions:
       contents: read
