@@ -8,9 +8,12 @@
 #   digest   explicit upstream digest; default: <context>/upstream.digest
 #
 # Outputs:
-#   version     the BamBuddy version (config.yaml is the single source)
-#   digest_arg  "BAMBUDDY_DIGEST=sha256:..." for channels whose Dockerfile pins
-#               its upstream base by digest (daily), empty otherwise
+#   version      the BamBuddy version (config.yaml is the single source)
+#   digest_arg   "BAMBUDDY_DIGEST=sha256:..." for channels whose Dockerfile pins
+#                its upstream base by digest (daily), empty otherwise
+#   description  one-line text for the GHCR package page (text only, max 512
+#                characters). GHCR reads it from the manifest annotations, not
+#                from the Dockerfile label, for multi-arch images.
 #
 # Daily needs the digest because upstream publishes no versioned daily tags,
 # only the rolling :daily. Without it a manual daily build would pull whatever
@@ -43,5 +46,19 @@ if grep -q '^ARG BAMBUDDY_DIGEST' "${CONTEXT}/Dockerfile"; then
   echo "digest_arg=BAMBUDDY_DIGEST=${DIGEST}" >> "${OUT}"
   echo "Upstream digest: ${DIGEST}"
 else
+  DIGEST=""
   echo "digest_arg=" >> "${OUT}"
 fi
+
+# Release notes live upstream; the full changelog does not fit (512 chars,
+# no markdown), so the description links to it instead.
+NOTES="https://github.com/maziggy/bambuddy/releases/tag/v${VERSION}"
+if [ -n "${DIGEST}" ]; then
+  DESCRIPTION="BamBuddy ${VERSION} (Daily) for Home Assistant built from upstream daily ${DIGEST:0:19}. Release notes: ${NOTES}"
+else
+  DESCRIPTION="BamBuddy ${VERSION} (Stable) for Home Assistant. A powerful self-hosted command center for Bambu Lab printers. Release notes: ${NOTES}"
+fi
+# The per-architecture suffix (" — arm64 image") is added later; keep room.
+DESCRIPTION="${DESCRIPTION:0:490}"
+echo "description=${DESCRIPTION}" >> "${OUT}"
+echo "Description: ${DESCRIPTION}"
