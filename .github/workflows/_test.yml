@@ -1,7 +1,7 @@
 name: Test (internal)
 
 # Reusable workflow (workflow_call), called by test.yml, build.yml and
-# update-versions.yml. Two stages, both scoped to one channel:
+# auto-update.yml. Two stages, both scoped to one channel:
 #   lint  - static checks, no Docker, a few seconds
 #   smoke - builds the image locally (amd64, never pushed) and boots it once per
 #           scenario against a mock Supervisor
