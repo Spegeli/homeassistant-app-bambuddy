@@ -48,13 +48,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # ha_arch is Home Assistant's name (io.hass.arch label, config.yaml);
+        # tag_arch is Docker's name, used in the per-architecture tag because
+        # that is what GHCR shows next to it (linux/arm64) and what upstream
+        # uses (daily-arm64).
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
             ha_arch: amd64
+            tag_arch: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             ha_arch: aarch64
+            tag_arch: arm64
 
     steps:
       - name: Prepare
@@ -74,19 +80,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build and push by digest
+      # Each architecture is pushed under its own tag (<version>-amd64,
+      # <version>-arm64). The merge job still combines them by digest into the
+      # multi-arch <version> / latest tag that Home Assistant pulls. Tagging the
+      # children makes the package list readable and keeps them safe from any
+      # "delete untagged versions" cleanup, which would otherwise break the
+      # multi-arch tag that references them.
+      - name: Build and push ${{ matrix.tag_arch }}
         id: build
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.context }}
           platforms: ${{ matrix.platform }}
           provenance: false
+          push: true
+          tags: ${{ inputs.image }}:${{ needs.prepare.outputs.version }}-${{ matrix.tag_arch }}
           # digest_arg is empty for stable; build-push-action drops empty lines.
           build-args: |
             BAMBUDDY_VERSION=${{ needs.prepare.outputs.version }}
             BUILD_ARCH=${{ matrix.ha_arch }}
             ${{ needs.prepare.outputs.digest_arg }}
-          outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
