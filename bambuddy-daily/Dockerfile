@@ -6,24 +6,33 @@
 # see the STABLE Dockerfile for the full explanation). OpenCV already works
 # on the upstream image.
 #
-# Daily tracks the rolling upstream :daily tag, so there is no version ARG
-# before FROM; BAMBUDDY_VERSION is only used for the io.hass.version label.
-FROM ghcr.io/maziggy/bambuddy:daily
+# Upstream publishes no versioned daily tags, only the rolling :daily. To
+# rebuild exactly the upstream stand that belongs to the version in
+# config.yaml, the base is pinned by digest. BAMBUDDY_DIGEST has NO default -
+# injected at build time from bambuddy-daily/upstream.digest, which the
+# auto-update writes in the same commit as the version in config.yaml.
+ARG BAMBUDDY_DIGEST
+FROM ghcr.io/maziggy/bambuddy@${BAMBUDDY_DIGEST}
 
 # All build-args in one place. S6_OVERLAY_VERSION and BASHIO_VERSION are pinned
-# here and bumped by hand; BAMBUDDY_VERSION and BUILD_ARCH come from the build
-# workflow (BAMBUDDY_VERSION only feeds the io.hass.version label here).
-# TARGETARCH is set by buildx.
+# here and bumped by hand; BAMBUDDY_VERSION, BAMBUDDY_DIGEST and BUILD_ARCH come
+# from the build workflow (BAMBUDDY_VERSION only feeds the io.hass.version label
+# here). TARGETARCH is set by buildx. ARGs declared before FROM go out of scope
+# after it, so BAMBUDDY_DIGEST is re-declared below for the base labels.
 ARG S6_OVERLAY_VERSION=3.2.0.2
 ARG BASHIO_VERSION=v0.16.2
 ARG TARGETARCH
 ARG BAMBUDDY_VERSION
+ARG BAMBUDDY_DIGEST
 ARG BUILD_ARCH
 
 LABEL org.opencontainers.image.title="Home Assistant App: BamBuddy (Daily)"
 LABEL org.opencontainers.image.description="A powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules."
 LABEL org.opencontainers.image.source="https://github.com/Spegeli/homeassistant-app-bambuddy"
 LABEL org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
+# Which upstream stand is inside this image.
+LABEL org.opencontainers.image.base.name="ghcr.io/maziggy/bambuddy:daily"
+LABEL org.opencontainers.image.base.digest="${BAMBUDDY_DIGEST}"
 
 # Supervisor metadata (required when not using the HA builder). It reads
 # io.hass.version as the installed image version.
