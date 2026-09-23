@@ -4,7 +4,7 @@ name: Build image
 # dialog, channel picked in the dropdown. The run list still shows which
 # channel was built, because run-name carries it.
 #
-# Versions are bumped by update-versions.yml, which builds and commits on its
+# Versions are bumped by auto-update.yml, which builds and commits on its
 # own. Use this workflow after changing the Dockerfile or rootfs without a
 # version change - nothing rebuilds automatically then.
 

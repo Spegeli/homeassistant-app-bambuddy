@@ -37,7 +37,7 @@ if grep -q '^ARG BAMBUDDY_DIGEST' "${CONTEXT}/Dockerfile"; then
     DIGEST=$(tr -d '[:space:]' < "${CONTEXT}/upstream.digest")
   fi
   if ! grep -Eq '^sha256:[0-9a-f]{64}$' <<<"${DIGEST}"; then
-    echo "::error::${CONTEXT} pins its upstream base by digest, but no valid digest is recorded in ${CONTEXT}/upstream.digest (got '${DIGEST}'). Run 'Auto-Update BamBuddy Versions' once to pin it."
+    echo "::error::${CONTEXT} pins its upstream base by digest, but no valid digest is recorded in ${CONTEXT}/upstream.digest (got '${DIGEST}'). Run the 'Auto-update' workflow once to pin it."
     exit 1
   fi
   echo "digest_arg=BAMBUDDY_DIGEST=${DIGEST}" >> "${OUT}"

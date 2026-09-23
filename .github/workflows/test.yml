@@ -4,7 +4,7 @@ run-name: ${{ inputs.smoke && format('Test {0}', inputs.channel) || format('Test
 
 # Manual only, like the build workflow. Small commits should not each trigger
 # a container build, so the tests run when you decide they should. They still
-# run automatically where they act as a gate: in update-versions before
+# run automatically where they act as a gate: in auto-update before
 # anything is pushed or committed, and in build.yml before it publishes.
 
 on:
