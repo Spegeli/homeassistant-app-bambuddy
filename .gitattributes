@@ -1,0 +1,8 @@
+# Keep LF line endings everywhere: the s6 scripts fail with CRLF ("bashio\r"),
+# and Git for Windows checks files out with CRLF by default (core.autocrlf).
+* text=auto eol=lf
+*.png binary
+
+# Upstream release notes land here as the auto-update fetches them, some with
+# CRLF. Git keeps them exactly as committed.
+CHANGELOG.md -text

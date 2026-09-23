@@ -13,14 +13,17 @@ python3 tests/lint.py                    # both channels
 python3 tests/lint.py bambuddy           # one channel
 ```
 
-Checks per channel: `config.yaml` keys and types, `slug`/`image`/`arch`
-consistency, `options` and `schema` in the same order, all five translation
-files carrying exactly those keys in that order with name and description,
-the run/finish shebangs and line endings, `exec uvicorn` as the last line of
-`run`, the `io.hass.*` labels, the blanked `CMD`, that every file under
-`rootfs/` is actually covered by a `COPY` instruction, and - for daily - that
-`upstream.digest` is `sha256:` plus 64 hex characters (a missing file is only a
-note: the next Auto-update run pins it).
+Checks per channel: `config.yaml` keys and types, the exact
+`version: "<version>"` line the auto-update reads and rewrites as text,
+`slug`/`image`/`arch` consistency, `options` and `schema` in the same order,
+all five translation files carrying exactly those keys in that order with name
+and description, the run/finish shebangs and line endings (on the raw bytes),
+`exec uvicorn` as the last line of `run`, the `/config` data and log lines,
+the `io.hass.*` labels, `ENTRYPOINT` and the blanked `CMD` (whole lines, so a
+commented-out instruction does not count), that every file under `rootfs/` is
+covered by a `COPY` instruction (whole path components), and - for daily -
+that `upstream.digest` is `sha256:` plus 64 hex characters (a missing file is
+only a note: the next Auto-update run pins it).
 
 ## Stage 2 - container tests (needs Docker)
 
@@ -36,15 +39,20 @@ bash tests/smoke.sh bambuddy:test all-on                   # one scenario
 ```
 
 `image-checks.sh` inspects the built image: `io.hass.version` against the
-expected version, `io.hass.type`/`arch`, `ENTRYPOINT`/`CMD`, the `ENV`
-defaults, 0755 on run and finish, the `with-contenv` symlink, bashio, jq,
-`ip -j`, and that `import cv2` works.
+expected version (this only proves the label was set from the build argument;
+the no-cache test build guards against a stale image under a new tag),
+`io.hass.type`/`arch`, `ENTRYPOINT`/`CMD`, the `ENV` defaults including
+`S6_SERVICES_GRACETIME`, the curl-based `HEALTHCHECK`, 0755 on run and finish,
+the `with-contenv` symlink, bashio, jq, `ip -j`, and that `import cv2` works.
 
 `smoke.sh` boots the image once per scenario in `scenarios/` against the mock
 Supervisor in `mock-supervisor/`, then asserts the web UI, `/health`, exactly
 one uvicorn process, the `/config` symlinks, a clean log, and the environment
-the run script exported. It finishes with the shutdown path (exit 256, no
-halt) and the crash path (exit 3 halts the container).
+the run script exported. The trust-store scenarios also make a real HTTPS
+request with httpx and the uvicorn process's own environment, against a server
+certificate signed by a CA generated for the test. `defaults` runs the image's
+`HEALTHCHECK` command against the app. It finishes with the shutdown path
+(exit 256, no halt) and the crash path (exit 3 halts the container).
 
 The mock matters: bashio talks to `${SUPERVISOR_API}`, and without it every
 `bashio::config` call fails and the run script skips every option block, so the
@@ -55,18 +63,21 @@ test would pass while proving nothing.
 | File | Covers |
 |------|--------|
 | `defaults.json` | shipped defaults, no empty variables exported |
-| `all-on.json` | debug, share + media, trust store with a generated CA |
+| `all-on.json` | debug, share + media, trust store with a generated CA, HTTPS round-trip |
 | `media-only.json` | `BAMBUDDY_EXTERNAL_ROOTS=/media` without a leading colon |
 | `cert-missing.json` | both warnings, app still starts |
 | `empty-origins.json` | `TRUSTED_FRAME_ORIGINS` stays unset, not empty |
+| `cert-subdir-pem.json` | CA in a subfolder with a `.pem` name is installed and trusted |
+| `cert-invalid.json` | a file that is no certificate: warning, app still starts |
 
 A new option needs: the option in both `config.yaml` files, all ten
-translation files, a scenario here, and its assertion in `smoke.sh`.
+translation files, the options section in both `DOCS.md`, a scenario here, and
+its assertion in `smoke.sh`.
 
 ## In CI
 
-`_test.yml` is the reusable workflow (lint, then build amd64 locally and run
-both scripts). It is called by:
+`_test.yml` is the reusable workflow (lint, then build the image for amd64
+and arm64, each natively, and run both scripts). It is called by:
 
 - `test.yml` - manual only (Actions -> Test -> Run workflow), with a channel
   choice and a switch for the container stage. Nothing runs on a push, so small
@@ -79,7 +90,8 @@ Build and test resolve the version (and, for daily, the upstream digest)
 through the same script, `.github/scripts/resolve-build-args.sh`, so a test
 always builds exactly what the build would push.
 
-When the auto-update tests fail, the workflow opens an issue titled
+When anything after the check fails in the auto-update (tests, image build or
+push, commit), the workflow opens an issue titled
 `Auto-update blocked: <channel> <version>` and skips that version while the
 issue is open, so the hourly cron does not retry it forever. Close the issue
 after fixing the cause.

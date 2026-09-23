@@ -17,12 +17,13 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **Channels.** There are two channels: `bambuddy/` (Stable) and `bambuddy-daily/` (Daily). By default, apply a change to **both** so they stay consistent. Exception: if the change depends on an upstream feature that so far only exists in BamBuddy's daily build, change `bambuddy-daily/` only. Stable follows once that feature ships in a stable BamBuddy release. Say which channel(s) you changed and why in the PR description.
 
-**Don't touch** `version:` in `config.yaml` or `CHANGELOG.md`. Both are updated automatically by the version workflow.
+**Don't touch** `version:` in `config.yaml` or `CHANGELOG.md`. Both are updated automatically by the Auto-update workflow.
 
 **New or changed options** need all of these, in the same order as in `config.yaml`:
 - `options` and `schema` in `config.yaml`
 - every file in `translations/` (currently `en`, `de`, `fr`, `es`, `it`)
 - the options section in `DOCS.md`
+- a scenario in `tests/scenarios/` and its assertions in `tests/smoke.sh`
 
 **Runtime settings** (paths, environment variables, option handling) belong in `rootfs/etc/services.d/bambuddy/run`. Keep `exec uvicorn ...` as the last line.
 
@@ -32,44 +33,31 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 ## Testing locally
 
-You need Docker with Buildx. Build the Stable image. The version is read from `bambuddy/config.yaml`, so it always matches the current release:
+You need Docker with Buildx, and Python 3 with PyYAML for the static checks. The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
 
 ```bash
-docker buildx build --load -t bambuddy-test \
+python3 tests/lint.py
+docker buildx build --load -t bambuddy:test \
   --build-arg BAMBUDDY_VERSION="$(grep '^version:' bambuddy/config.yaml | cut -d'"' -f2)" \
   --build-arg BUILD_ARCH=amd64 \
   bambuddy/
+bash tests/image-checks.sh bambuddy bambuddy:test
+bash tests/smoke.sh bambuddy:test
 ```
 
-Or the Daily image:
+The Daily image pins its upstream base by digest, so it needs one more build argument:
 
 ```bash
-docker buildx build --load -t bambuddy-test \
+docker buildx build --load -t bambuddy:test \
   --build-arg BAMBUDDY_VERSION="$(grep '^version:' bambuddy-daily/config.yaml | cut -d'"' -f2)" \
+  --build-arg BAMBUDDY_DIGEST="$(cat bambuddy-daily/upstream.digest)" \
   --build-arg BUILD_ARCH=amd64 \
   bambuddy-daily/
 ```
 
 On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
 
-Start it outside Home Assistant. The run script expects the Supervisor token and the options file, so provide stand-ins:
-
-```bash
-echo '{"debug": false}' > options.json
-docker run --rm -p 8000:8000 \
-  -e SUPERVISOR_TOKEN=dummy \
-  -e TZ=Europe/Berlin \
-  -v "$PWD/options.json:/data/options.json:ro" \
-  bambuddy-test
-```
-
-Expect `Setting TZ: Europe/Berlin` and `Uvicorn running on http://0.0.0.0:8000` in the log, and no `Traceback` or `unbound variable`. Errors about contacting the Supervisor API are expected outside Home Assistant.
-
-Quick check that OpenCV works:
-
-```bash
-docker run --rm --entrypoint "" bambuddy-test python3 -c "import cv2; print(cv2.__version__)"
-```
+`smoke.sh` starts the image against a small mock of the Home Assistant Supervisor. That matters: the run script reads the app options through the Supervisor API, so a container started without it skips every option and never runs the code you changed.
 
 ## After merging
 

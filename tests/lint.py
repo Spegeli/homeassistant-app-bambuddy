@@ -35,7 +35,13 @@ def ok(message):
 
 def check_config(channel):
     name = channel.name
-    config = yaml.safe_load((channel / "config.yaml").read_text(encoding="utf-8"))
+    path = channel / "config.yaml"
+    raw = path.read_text(encoding="utf-8")
+    config = yaml.safe_load(raw)
+
+    # Raw bytes: read_text() would already have turned CRLF into LF.
+    if b"\r" in path.read_bytes():
+        fail(name, "config.yaml has CRLF line endings")
 
     for key in REQUIRED_KEYS:
         if key not in config:
@@ -46,6 +52,14 @@ def check_config(channel):
         fail(name, "version must be a non-empty string (quote it in YAML)")
     else:
         ok("version {}".format(version))
+
+    # The auto-update reads and rewrites this line as text (grep/sed), so it
+    # must be exactly one plain quoted value. A trailing comment or other
+    # quoting would make every hourly run see a "new" version.
+    version_lines = re.findall(r"^version:.*$", raw, re.M)
+    if len(version_lines) != 1 or not re.fullmatch(
+            r'version: "[0-9A-Za-z][0-9A-Za-z._-]*"', version_lines[0]):
+        fail(name, 'config.yaml needs exactly one line version: "<version>" (no comment, double quotes)')
 
     expected_slug = name.replace("-", "_")
     if config.get("slug") != expected_slug:
@@ -115,10 +129,10 @@ def check_scripts(channel):
         if not path.is_file():
             fail(name, "{} is missing".format(path.name))
             continue
-        text = path.read_text(encoding="utf-8")
-        if "\r" in text:
+        # Raw bytes: read_text() would already have turned CRLF into LF.
+        if b"\r" in path.read_bytes():
             fail(name, "{} has CRLF line endings".format(path.name))
-        if not text.startswith(shebang):
+        if not path.read_text(encoding="utf-8").startswith(shebang):
             fail(name, "{} must start with '{}'".format(path.name, shebang))
 
     if not run.is_file():
@@ -134,22 +148,26 @@ def check_scripts(channel):
     else:
         ok("run ends with exec uvicorn on 0.0.0.0:8000")
 
-    for needle in ("/config/data", "/config/logs"):
-        if needle not in text:
-            fail(name, "run does not reference {}".format(needle))
+    # The data must live in the addon_config mount (/config), which survives an
+    # uninstall. Check the exact lines - a log message also mentions the paths.
+    for line in ("ln -s /config/data /app/data", "ln -s /config/logs /app/logs",
+                 "export DATA_DIR=/config/data", "export LOG_DIR=/config/logs"):
+        if not re.search(r"^{}$".format(re.escape(line)), text, re.M):
+            fail(name, "run is missing the line '{}'".format(line))
 
 
 def check_dockerfile(channel):
     name = channel.name
     text = (channel / "Dockerfile").read_text(encoding="utf-8")
 
-    if 'ENTRYPOINT ["/init"]' not in text:
+    # Anchored to whole lines, so a commented-out instruction does not count.
+    if not re.search(r'^ENTRYPOINT \["/init"\]$', text, re.M):
         fail(name, 'Dockerfile must set ENTRYPOINT ["/init"]')
     if not re.search(r"^CMD \[\]$", text, re.M):
         fail(name, "Dockerfile must blank the inherited CMD (else a second uvicorn starts)")
     for label in ('io.hass.version="${BAMBUDDY_VERSION}"', 'io.hass.type="app"',
                   'io.hass.arch="${BUILD_ARCH}"'):
-        if "LABEL " + label not in text:
+        if not re.search(r"^LABEL {}$".format(re.escape(label)), text, re.M):
             fail(name, "Dockerfile must set LABEL {}".format(label))
 
     # Every file under rootfs/ must be covered by a COPY instruction, otherwise
@@ -162,7 +180,10 @@ def check_dockerfile(channel):
     uncovered = []
     for path in files:
         relative = path.relative_to(channel).as_posix()
-        if not any(relative.startswith(source.rstrip("/")) for source in sources):
+        # Whole path components: "rootfs/etc/services.d/bambuddy" does not
+        # cover a sibling folder like "rootfs/etc/services.d/bambuddy-extra".
+        if not any(relative == source.rstrip("/") or relative.startswith(source.rstrip("/") + "/")
+                   for source in sources):
             uncovered.append(relative)
     if uncovered:
         fail(name, "Dockerfile COPY does not cover: {}".format(", ".join(uncovered)))
