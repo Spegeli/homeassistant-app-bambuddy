@@ -145,7 +145,14 @@ Close the slicer completely and reopen it. The Virtual Printer connection should
 
 ## Data Persistence
 
-All data (print archive, settings, logs) is stored persistently in the `addon_configs` directory, which is accessible via the **File Editor** in Home Assistant. Your data is safe across updates and restarts. When uninstalling, Home Assistant will ask whether to remove the app data as well - if you keep it, your data will still be there after a reinstall.
+All data (print archive, settings, logs) is stored persistently in the app's configuration folder (`addon_configs` -> `[slug]_bambuddy_daily`), which is accessible via the **File Editor** in Home Assistant. Your data is safe across updates and restarts.
+
+**Uninstalling:** Home Assistant warns that the app's *private data folder* will be permanently deleted. BamBuddy stores its own data (database, print archive, logs) in the configuration folder instead, so this warning does not affect it. What decides is the switch **"Also delete the app's configuration folder (if used)"**:
+
+- **Off** (default): your BamBuddy data stays and is used again after a reinstall.
+- **On**: all BamBuddy data is permanently deleted.
+
+The app options from the **Configuration** tab are reset to their defaults on uninstall.
 
 ---
 
