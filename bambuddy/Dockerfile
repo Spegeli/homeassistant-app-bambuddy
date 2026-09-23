@@ -26,6 +26,8 @@ LABEL org.opencontainers.image.title="Home Assistant App: BamBuddy (Stable)"
 LABEL org.opencontainers.image.description="A powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules."
 LABEL org.opencontainers.image.source="https://github.com/Spegeli/homeassistant-app-bambuddy"
 LABEL org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
+# Which upstream stand is inside this image.
+LABEL org.opencontainers.image.base.name="ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION}"
 
 # Supervisor metadata (required when not using the HA builder). It reads
 # io.hass.version as the installed image version.
