@@ -21,6 +21,10 @@ on:
         description: "Version to build; defaults to the channel's config.yaml"
         required: false
         type: string
+      digest:
+        description: "Upstream base digest (daily); defaults to <context>/upstream.digest"
+        required: false
+        type: string
       smoke:
         description: "Run the container smoke tests as well"
         required: false
@@ -55,6 +59,7 @@ jobs:
           bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/finish
           bash -n tests/smoke.sh
           bash -n tests/image-checks.sh
+          bash -n .github/scripts/resolve-build-args.sh
 
   smoke:
     name: Smoke ${{ inputs.context }}
@@ -65,15 +70,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
 
-      - name: Resolve version
+      # Same resolution as _build.yml, so the test builds exactly what the
+      # build would push.
+      - name: Resolve version and upstream digest
         id: version
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [ -z "${VERSION}" ]; then
-            VERSION=$(grep -E '^version:' ${{ inputs.context }}/config.yaml | sed -E 's/version:[[:space:]]*"?([^"]+)"?/\1/')
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Testing ${{ inputs.context }} ${VERSION}"
+        run: bash .github/scripts/resolve-build-args.sh "${{ inputs.context }}" "${{ inputs.version }}" "${{ inputs.digest }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -89,9 +90,11 @@ jobs:
           load: true
           provenance: false
           tags: bambuddy:test
+          # digest_arg is empty for stable; build-push-action drops empty lines.
           build-args: |
             BAMBUDDY_VERSION=${{ steps.version.outputs.version }}
             BUILD_ARCH=amd64
+            ${{ steps.version.outputs.digest_arg }}
 
       - name: Image checks
         run: bash tests/image-checks.sh ${{ inputs.context }} bambuddy:test "${{ steps.version.outputs.version }}"
