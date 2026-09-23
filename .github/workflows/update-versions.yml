@@ -163,6 +163,12 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
           sed -i 's/^version: ".*"/version: "${{ needs.check-stable.outputs.version }}"/' bambuddy/config.yaml
+          # Fail loudly if the bump did not land (e.g. the version: line was
+          # reformatted and sed no longer matches). Silently committing nothing
+          # would leave config.yaml on the old version while the image is
+          # already pushed, so every hourly run would push it again.
+          grep -qxF "version: \"${VERSION}\"" bambuddy/config.yaml \
+            || { echo "::error::version bump to ${VERSION} did not apply to bambuddy/config.yaml"; exit 1; }
           # Stable keeps a running changelog: newest version on top, last
           # MAX_SECTIONS versions kept. HA's update dialog shows everything from
           # the "## <new version>" heading down to "## <installed version>".
@@ -377,6 +383,12 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/maziggy/bambuddy/releases/tags/v${VERSION}" | jq -r '.body // empty')
           sed -i 's/^version: ".*"/version: "${{ needs.check-daily.outputs.version }}"/' bambuddy-daily/config.yaml
+          # Fail loudly if the bump did not land (e.g. the version: line was
+          # reformatted and sed no longer matches). Silently committing nothing
+          # would leave config.yaml on the old version while the image is
+          # already pushed, so every hourly run would push it again.
+          grep -qxF "version: \"${VERSION}\"" bambuddy-daily/config.yaml \
+            || { echo "::error::version bump to ${VERSION} did not apply to bambuddy-daily/config.yaml"; exit 1; }
           BODY="$BODY" VER="$VERSION" python3 - <<'PYEOF'
           import os
           # Daily keeps only the latest release notes (overwrite on purpose).
@@ -388,5 +400,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bambuddy-daily/config.yaml bambuddy-daily/CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${{ needs.check-daily.outputs.version }}"
+          git commit -m "chore: update BamBuddy Daily ${{ needs.check-daily.outputs.current }} -> ${{ needs.check-daily.outputs.version }}"
           git push
