@@ -57,7 +57,7 @@ RUN apt-get update \
 # links with-contenv: s6 v3 installs it at /command/with-contenv, but the
 # shebang "#!/usr/bin/with-contenv bashio" expects it at /usr/bin.
 RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
+    case "${TARGETARCH}" in \
         amd64) S6_ARCH=x86_64 ;; \
         arm64) S6_ARCH=aarch64 ;; \
         *)     echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
@@ -79,6 +79,11 @@ ENV PYTHONUNBUFFERED=1 \
     DATA_DIR=/config/data \
     LOG_DIR=/config/logs
 
+# s6 gives a service 3 s to stop before it kills it - too short for BamBuddy's
+# shutdown (connection drain, MQTT disconnects, database checkpoint). 25 s plus
+# s6's 3 s kill grace stays within the 30 s stop timeout in config.yaml.
+ENV S6_SERVICES_GRACETIME=25000
+
 # s6 service definition (run + finish), copied executable in one step.
 # Deliberately scoped to this one directory instead of "COPY rootfs /": --chmod
 # also applies to the directories along the path. Add a line here if rootfs
@@ -90,3 +95,8 @@ COPY --chmod=755 rootfs/etc/services.d/bambuddy /etc/services.d/bambuddy
 # s6 stage 2 runs the inherited CMD as a second uvicorn on port 8000.
 ENTRYPOINT ["/init"]
 CMD []
+
+# Upstream's HEALTHCHECK starts a Python interpreter every 30 s. Same endpoint
+# and timing with curl, which costs a fraction of that on a Raspberry Pi.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -fsS -o /dev/null http://127.0.0.1:8000/health || exit 1

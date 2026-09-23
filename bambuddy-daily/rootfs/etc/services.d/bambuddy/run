@@ -64,18 +64,32 @@ if [ -n "${EXTERNAL_ROOTS}" ]; then
 fi
 
 # Lets BamBuddy (httpx) trust a self-signed CA, e.g. for an internal HTTPS
-# endpoint. The certificate is read from the addon_configs folder.
+# endpoint. The certificate is read from the addon_configs folder (certfile may
+# include a subfolder) and installed under a fixed .crt name, because
+# update-ca-certificates ignores every other extension. httpx only uses the
+# system store when SSL_CERT_DIR is set - upstream's entrypoint exports it, but
+# /init replaces that entrypoint, so it happens here.
 if bashio::config.true 'use_system_trust_store'; then
   CERTFILE=$(bashio::config 'certfile')
   CERT_SRC="/config/${CERTFILE}"
-  if [ -n "${CERTFILE}" ] && [ -f "${CERT_SRC}" ]; then
-    cp "${CERT_SRC}" "/usr/local/share/ca-certificates/${CERTFILE}"
-    update-ca-certificates > /dev/null 2>&1
-    export USE_SYSTEM_TRUST_STORE=true
-    bashio::log.info "Setting USE_SYSTEM_TRUST_STORE: true (CA: ${CERTFILE})"
-  else
+  CERT_DEST=/usr/local/share/ca-certificates/bambuddy-custom-ca.crt
+  if [ -z "${CERTFILE}" ] || [ ! -f "${CERT_SRC}" ]; then
     bashio::log.warning "use_system_trust_store is enabled but certificate file not found: ${CERT_SRC}"
     bashio::log.warning "Place your CA certificate (.crt) in the addon_configs folder and set certfile to the correct filename"
+  elif ! openssl x509 -in "${CERT_SRC}" -noout > /dev/null 2>&1; then
+    bashio::log.warning "use_system_trust_store is enabled but ${CERT_SRC} is not a PEM certificate, skipping it"
+  else
+    cp "${CERT_SRC}" "${CERT_DEST}"
+    update-ca-certificates > /dev/null 2>&1 || true
+    # Only report success once the CA really is in the system bundle.
+    if openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt -partial_chain "${CERT_SRC}" > /dev/null 2>&1; then
+      export USE_SYSTEM_TRUST_STORE=true
+      export SSL_CERT_DIR=/etc/ssl/certs
+      bashio::log.info "Setting USE_SYSTEM_TRUST_STORE: true (CA: ${CERTFILE})"
+      bashio::log.info "Setting SSL_CERT_DIR: ${SSL_CERT_DIR}"
+    else
+      bashio::log.warning "use_system_trust_store is enabled but ${CERT_SRC} is not accepted as a trusted CA (expired?), skipping it"
+    fi
   fi
 fi
 

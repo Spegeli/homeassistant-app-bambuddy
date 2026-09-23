@@ -1,0 +1,8 @@
+{
+  "trusted_frame_origins": [],
+  "enable_share": false,
+  "enable_media": false,
+  "use_system_trust_store": true,
+  "certfile": "not-a-cert.crt",
+  "debug": false
+}

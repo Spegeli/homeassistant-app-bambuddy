@@ -64,7 +64,7 @@ In BamBuddy, go to **File Manager -> Link External Folder** and enter the path:
 
 ### Self-Signed CA Certificate
 
-If your Home Assistant instance uses a self-signed certificate (or a certificate signed by a private CA), BamBuddy will deny the HTTPS connection by default. This option lets you provide your own CA certificate so that BamBuddy can trust it.
+If BamBuddy has to reach an HTTPS service that uses a self-signed certificate or one signed by a private CA (for example a self-hosted Spoolman, a notification endpoint or your Home Assistant instance), it denies the connection by default. This option lets you provide your own CA certificate so that BamBuddy can trust it.
 
 | Option | Type | Default |
 |--------|------|---------|
@@ -73,16 +73,16 @@ If your Home Assistant instance uses a self-signed certificate (or a certificate
 
 **Steps:**
 
-1. Export your CA certificate as a `.crt` file (PEM format - the public CA certificate only, no private key).
+1. Export your CA certificate in PEM format - the public CA certificate only, no private key. The file name may end in `.crt` or `.pem`.
 2. Open the **File Editor** in Home Assistant and navigate to:
    `addon_configs` -> `[slug]_bambuddy`
-3. Upload or create the certificate file there (e.g., `custom_ca.crt`).
+3. Upload or create the certificate file there (e.g., `custom_ca.crt`). A subfolder works too (e.g., `certs/my_ca.pem`).
 4. In the add-on configuration, enable **Use System Trust Store** and set **CA Certificate Filename** to the filename you used in step 3.
 5. Restart the add-on.
 
 > **Note:** Only the CA certificate (public part) is required - not `fullchain.pem` and not a private key file.
 
-> **Note:** If the certificate file is not found at startup, BamBuddy will log a warning and start anyway - without the custom CA. Check the add-on log if HTTPS connections to your HA instance fail.
+> **Note:** If the certificate file is not found at startup or is not a PEM certificate, BamBuddy will log a warning and start anyway - without the custom CA. Check the add-on log if HTTPS connections to your HA instance fail.
 
 ---
 

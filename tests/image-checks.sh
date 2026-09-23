@@ -9,9 +9,11 @@
 # while config.yaml still carries the old one - the bump is only committed
 # after these tests pass.
 #
-# Catches the failures this repo actually had: a cached build that shipped an
-# older BamBuddy under a new tag, cv2 missing so plate detection was silently
-# off, and the inherited upstream CMD that started a second uvicorn.
+# Catches the failures this repo actually had: cv2 missing so plate detection
+# was silently off, and the inherited upstream CMD that started a second
+# uvicorn. The io.hass.version check only proves the label was set from the
+# build argument - it cannot tell which BamBuddy is inside; the no-cache test
+# build guards against a stale image under a new tag.
 set -uo pipefail
 
 CHANNEL="${1:?channel directory required}"
@@ -50,7 +52,8 @@ esac
 check "entrypoint" '[/init]' "$(docker inspect "${IMAGE}" --format '{{.Config.Entrypoint}}')"
 check "cmd is blank" '[]' "$(docker inspect "${IMAGE}" --format '{{.Config.Cmd}}')"
 
-for pair in "DATA_DIR=/config/data" "LOG_DIR=/config/logs" "PYTHONUNBUFFERED=1"; do
+for pair in "DATA_DIR=/config/data" "LOG_DIR=/config/logs" "PYTHONUNBUFFERED=1" \
+            "S6_SERVICES_GRACETIME=25000"; do
   if docker inspect "${IMAGE}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -qx "${pair}"; then
     echo "  ok   env ${pair}"
   else
@@ -58,6 +61,14 @@ for pair in "DATA_DIR=/config/data" "LOG_DIR=/config/logs" "PYTHONUNBUFFERED=1";
     FAIL=1
   fi
 done
+
+# Our own HEALTHCHECK (curl), not upstream's Python one. smoke.sh runs it
+# against the live app.
+HEALTHCHECK_CMD=$(docker inspect "${IMAGE}" --format '{{json .Config.Healthcheck.Test}}')
+case "${HEALTHCHECK_CMD}" in
+  *curl*127.0.0.1:8000/health*) echo "  ok   HEALTHCHECK uses curl on /health" ;;
+  *) echo "  FAIL HEALTHCHECK is not the curl check: ${HEALTHCHECK_CMD}"; FAIL=1 ;;
+esac
 
 # Everything below needs a throwaway container but no running service.
 OUT=$(docker run --rm --entrypoint sh "${IMAGE}" -c '
