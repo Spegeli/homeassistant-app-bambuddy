@@ -17,13 +17,18 @@ Checks per channel: `config.yaml` keys and types, `slug`/`image`/`arch`
 consistency, `options` and `schema` in the same order, all five translation
 files carrying exactly those keys in that order with name and description,
 the run/finish shebangs and line endings, `exec uvicorn` as the last line of
-`run`, the `io.hass.*` labels, the blanked `CMD`, and that every file under
-`rootfs/` is actually covered by a `COPY` instruction.
+`run`, the `io.hass.*` labels, the blanked `CMD`, that every file under
+`rootfs/` is actually covered by a `COPY` instruction, and - for daily - that
+`upstream.digest` is `sha256:` plus 64 hex characters (a missing file is only a
+note: the next Auto-Update run pins it).
 
 ## Stage 2 - container tests (needs Docker)
 
 ```bash
 docker build -t bambuddy:test --build-arg BAMBUDDY_VERSION=1.2.5.5 --build-arg BUILD_ARCH=amd64 bambuddy
+# Daily pins its upstream base by digest (upstream has no versioned daily tags):
+docker build -t bambuddy:test --build-arg BAMBUDDY_VERSION=<version> \
+  --build-arg BAMBUDDY_DIGEST=$(cat bambuddy-daily/upstream.digest) --build-arg BUILD_ARCH=amd64 bambuddy-daily
 bash tests/image-checks.sh bambuddy bambuddy:test          # version from config.yaml
 bash tests/image-checks.sh bambuddy bambuddy:test 1.2.5.6  # explicit expected version
 bash tests/smoke.sh bambuddy:test                          # all scenarios
@@ -68,8 +73,11 @@ both scripts). It is called by:
   commits do not each trigger a build.
 - `update-versions.yml` - between `check` and `build`, so a failing test means
   nothing is pushed to GHCR and `config.yaml` is never bumped
-- `build-stable.yml` / `build-daily.yml` - before the manual build, skippable
-  via the `skip_tests` input
+- `build.yml` - before the manual build; untick `run_tests` to skip
+
+Build and test resolve the version (and, for daily, the upstream digest)
+through the same script, `.github/scripts/resolve-build-args.sh`, so a test
+always builds exactly what the build would push.
 
 When the auto-update tests fail, the workflow opens an issue titled
 `Auto-update blocked: <channel> <version>` and skips that version while the
