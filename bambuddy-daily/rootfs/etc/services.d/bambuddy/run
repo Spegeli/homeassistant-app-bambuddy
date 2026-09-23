@@ -1,14 +1,15 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Start the example service
+# Home Assistant App: BamBuddy
+# Starts the BamBuddy backend (FastAPI/uvicorn) as the s6 service "bambuddy".
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# Add your code here
-declare debug
-debug=$(bashio::config 'debug')
-
-bashio::log.info 'Link data dir'
+# --- Persistent storage -------------------------------------------------------
+# /config is the addon_config mount (/addon_configs/<slug>/ on the host). Unlike
+# /data it survives an uninstall, so the app data and logs live there and /app
+# only holds symlinks to it.
+bashio::log.info 'Linking /config/data and /config/logs into /app'
 mkdir -p /config/data
 mkdir -p /config/logs
 rm -rf /app/data
@@ -16,25 +17,29 @@ rm -rf /app/logs
 ln -s /config/data /app/data
 ln -s /config/logs /app/logs
 
+# BamBuddy resolves paths against DATA_DIR/LOG_DIR and calls Path.relative_to();
+# both must be the canonical /config/... path, not the /app symlink, or it fails
+# with a ValueError. The Dockerfile sets the same values as a fallback.
 export DATA_DIR=/config/data
 export LOG_DIR=/config/logs
 
-cd /app
-
-if [ "${debug}" = "true" ]; then
-  bashio::log.info 'Enabling debug mode'
-  export DEBUG=true
-fi
-
+# --- Home Assistant API -------------------------------------------------------
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
 
-# Timezone: the Supervisor injects TZ (Home Assistant's configured zone) into
-# every app container. Bambuddy reads it via zoneinfo; fall back to UTC.
+# --- Timezone -----------------------------------------------------------------
+# The Supervisor injects TZ (Home Assistant's configured zone) into every app
+# container. BamBuddy reads it via zoneinfo; fall back to UTC.
 export TZ="${TZ:-UTC}"
 bashio::log.info "Setting TZ: ${TZ}"
 
-# Trusted Frame Origins
+# --- Options ------------------------------------------------------------------
+if bashio::config.true 'debug'; then
+  bashio::log.info 'Setting DEBUG: true'
+  export DEBUG=true
+fi
+
+# Origins that may embed BamBuddy in an iframe (Home Assistant webpage cards).
 if bashio::config.exists 'trusted_frame_origins'; then
   ORIGINS=$(bashio::config 'trusted_frame_origins | join(",")')
   if [ -n "${ORIGINS}" ]; then
@@ -43,40 +48,42 @@ if bashio::config.exists 'trusted_frame_origins'; then
   fi
 fi
 
-# External storage (Share / Media)
+# /share and /media are always mounted (see config.yaml), but only exposed in
+# BamBuddy's file manager when enabled here. Colon-separated list.
 EXTERNAL_ROOTS=""
 if bashio::config.true 'enable_share'; then
-  bashio::log.info "Enabling /share as external root"
   EXTERNAL_ROOTS="/share"
 fi
 if bashio::config.true 'enable_media'; then
-  bashio::log.info "Enabling /media as external root"
-  if [ -n "${EXTERNAL_ROOTS}" ]; then
-    EXTERNAL_ROOTS="${EXTERNAL_ROOTS}:/media"
-  else
-    EXTERNAL_ROOTS="/media"
-  fi
+  # Append, prefixing a colon only when /share is already in the list.
+  EXTERNAL_ROOTS="${EXTERNAL_ROOTS:+${EXTERNAL_ROOTS}:}/media"
 fi
 if [ -n "${EXTERNAL_ROOTS}" ]; then
   bashio::log.info "Setting BAMBUDDY_EXTERNAL_ROOTS: ${EXTERNAL_ROOTS}"
   export BAMBUDDY_EXTERNAL_ROOTS="${EXTERNAL_ROOTS}"
 fi
 
-# Self-signed CA certificate support
+# Lets BamBuddy (httpx) trust a self-signed CA, e.g. for an internal HTTPS
+# endpoint. The certificate is read from the addon_configs folder.
 if bashio::config.true 'use_system_trust_store'; then
   CERTFILE=$(bashio::config 'certfile')
   CERT_SRC="/config/${CERTFILE}"
   if [ -n "${CERTFILE}" ] && [ -f "${CERT_SRC}" ]; then
-    bashio::log.info "Installing CA certificate: ${CERTFILE}"
     cp "${CERT_SRC}" "/usr/local/share/ca-certificates/${CERTFILE}"
-    update-ca-certificates
+    update-ca-certificates > /dev/null 2>&1
     export USE_SYSTEM_TRUST_STORE=true
-    bashio::log.info "System trust store enabled"
+    bashio::log.info "Setting USE_SYSTEM_TRUST_STORE: true (CA: ${CERTFILE})"
   else
     bashio::log.warning "use_system_trust_store is enabled but certificate file not found: ${CERT_SRC}"
     bashio::log.warning "Place your CA certificate (.crt) in the addon_configs folder and set certfile to the correct filename"
   fi
 fi
 
-bashio::log.info 'Start Bambuddy ...'
+# --- Start --------------------------------------------------------------------
+# uvicorn imports backend.app.main from /app, so start from there. exec replaces
+# this script, so uvicorn becomes the service process and receives SIGTERM
+# directly from s6 - required for a clean database teardown on shutdown.
+cd /app
+
+bashio::log.info 'Starting BamBuddy ...'
 exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --loop asyncio

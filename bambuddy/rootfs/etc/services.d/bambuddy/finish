@@ -1,15 +1,20 @@
 #!/usr/bin/env bashio
 # ==============================================================================
-# Take down the S6 supervision tree when example fails
+# Home Assistant App: BamBuddy
+# Runs when the "bambuddy" service exits: halts the whole container on a crash
+# so Home Assistant reports the app as stopped instead of looping silently.
+# No with-contenv here - this script needs bashio only, not the app environment.
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
 declare APP_EXIT_CODE=${1}
 
+# 0 = clean exit, 256 = terminated by a signal (a normal stop or restart from
+# Home Assistant). Anything else is a crash.
 if [[ "${APP_EXIT_CODE}" -ne 0 ]] && [[ "${APP_EXIT_CODE}" -ne 256 ]]; then
-  bashio::log.warning "Halt add-on with exit code ${APP_EXIT_CODE}"
+  bashio::log.warning "BamBuddy crashed (exit code ${APP_EXIT_CODE}), halting app"
   echo "${APP_EXIT_CODE}" > /run/s6-linux-init-container-results/exitcode
   exec /run/s6/basedir/bin/halt
 fi
 
-bashio::log.info "Service restart after closing"
+bashio::log.info "BamBuddy exited (code ${APP_EXIT_CODE})"
