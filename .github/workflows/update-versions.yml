@@ -43,28 +43,28 @@ jobs:
 
           if ! echo "$RAW" | jq -e 'type == "array"' >/dev/null 2>&1; then
             echo "::warning::GitHub API did not return a release array (rate limit / transient). Skipping this run."
-            echo "latest=" >> $GITHUB_OUTPUT
+            echo "latest=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           LATEST=$(echo "$RAW" | jq -r '[.[] | select(.prerelease == false) | select(.tag_name | ltrimstr("v") | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)*$"))] | sort_by(.published_at) | reverse | first | .tag_name // empty' | sed 's/^v//')
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "Found version: $LATEST"
 
       - name: Get current version from config.yaml
         id: get_current
         run: |
           CURRENT=$(grep '^version:' bambuddy/config.yaml | sed 's/.*"\(.*\)"/\1/')
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "Current version: $CURRENT"
 
       - name: Decide
         id: decide
         run: |
           if [ -n "${{ steps.get_version.outputs.latest }}" ] && [ "${{ steps.get_version.outputs.latest }}" != "${{ steps.get_current.outputs.current }}" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Skip a version that already failed its tests
@@ -81,9 +81,9 @@ jobs:
             --jq "[.[] | select(.title == \"${TITLE}\")] | length")
           if [ "${FOUND}" != "0" ]; then
             echo "::notice::Skipping ${TITLE} - an open issue still blocks it"
-            echo "blocked=true" >> $GITHUB_OUTPUT
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
           else
-            echo "blocked=false" >> $GITHUB_OUTPUT
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
           fi
 
   test-stable:
@@ -250,7 +250,7 @@ jobs:
 
           if ! echo "$REL" | jq -e 'type == "array"' >/dev/null 2>&1; then
             echo "::warning::GitHub API did not return a release array (rate limit / transient). Skipping this run."
-            echo "version=" >> $GITHUB_OUTPUT
+            echo "version=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -261,14 +261,14 @@ jobs:
             RELEASE_TAG="${DATE}-${SHORT}"
           fi
 
-          echo "version=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "Version: $RELEASE_TAG"
 
       - name: Get current version from config.yaml
         id: get_current
         run: |
           CURRENT=$(grep '^version:' bambuddy-daily/config.yaml | sed 's/.*"\(.*\)"/\1/')
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "Current version: $CURRENT"
 
       - name: Decide
@@ -276,9 +276,9 @@ jobs:
         run: |
           V="${{ steps.get_digest.outputs.version }}"
           if [ -n "$V" ] && [ "$V" != "null" ] && [ "$V" != "${{ steps.get_current.outputs.current }}" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Skip a version that already failed its tests
@@ -295,9 +295,9 @@ jobs:
             --jq "[.[] | select(.title == \"${TITLE}\")] | length")
           if [ "${FOUND}" != "0" ]; then
             echo "::notice::Skipping ${TITLE} - an open issue still blocks it"
-            echo "blocked=true" >> $GITHUB_OUTPUT
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
           else
-            echo "blocked=false" >> $GITHUB_OUTPUT
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
           fi
 
   test-daily:
