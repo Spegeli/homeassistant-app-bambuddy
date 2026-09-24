@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration/#app-configuration
 name: BamBuddy
-version: "1.2.5.5"
+version: "1.2.5.6"
 slug: bambuddy
 stage: stable
 description: BamBuddy is a powerful, self-hosted command center for Bambu Lab — from one A1 to an entire print farm. Your Printers. No Cloud. Your Rules.
