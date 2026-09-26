@@ -1,0 +1,89 @@
+name: Validate
+
+# Checks a change without publishing anything: static checks, and where it
+# matters the image built and booted on amd64 and arm64 (never pushed).
+#   push to any branch but main - lint only, a quick check while working
+#   pull request to main        - everything. "Validation result" is the check
+#                                 main's ruleset requires, so nothing merges
+#                                 unvalidated - a contributor's pull request
+#                                 included (read-only token, no secrets)
+#   manual                      - channel and container tests as chosen
+# main itself needs no run: changes only arrive through a validated pull
+# request, or as the auto-update's version commit, which it validated first.
+
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && format('Validate PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
+      || github.event_name == 'push'
+      && format('Validate {0} (lint only)', github.ref_name)
+      || inputs.smoke && format('Validate {0} on {1}', inputs.channel, github.ref_name)
+      || format('Validate {0} on {1} (lint only)', inputs.channel, github.ref_name) }}
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Which channel to validate"
+        type: choice
+        options: [both, stable, daily]
+        default: both
+      smoke:
+        description: "Also build the image and run the container tests"
+        type: boolean
+        default: true
+
+# A newer push or pull request update makes the running validation obsolete.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stable:
+    name: STABLE
+    if: github.event_name != 'workflow_dispatch' || inputs.channel != 'daily'
+    uses: ./.github/workflows/_validate.yml
+    with:
+      context: bambuddy
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+
+  daily:
+    name: DAILY
+    if: github.event_name != 'workflow_dispatch' || inputs.channel != 'stable'
+    uses: ./.github/workflows/_validate.yml
+    with:
+      context: bambuddy-daily
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+
+  # The one check main's ruleset requires; a fixed name stays valid when the
+  # jobs above change. always(), not !cancelled(): a skipped job counts as
+  # passed for a required check, so a cancelled validation must still run
+  # this job and fail it.
+  result:
+    name: Validation result
+    needs: [stable, daily]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Summarize
+        env:
+          STABLE: ${{ needs.stable.result }}
+          DAILY: ${{ needs.daily.result }}
+        run: |
+          echo "STABLE: ${STABLE}"
+          echo "DAILY:  ${DAILY}"
+          # skipped = channel left out of a manual run. Anything else but
+          # success (failure, cancelled, timed out) fails the check.
+          for result in "${STABLE}" "${DAILY}"; do
+            case "${result}" in
+              success|skipped) ;;
+              *) echo "::error::Validation did not pass"; exit 1 ;;
+            esac
+          done

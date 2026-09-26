@@ -6,7 +6,8 @@ name: Build image
 #
 # Versions are bumped by auto-update.yml, which builds and commits on its
 # own. Use this workflow after changing the Dockerfile or rootfs without a
-# version change - nothing rebuilds automatically then.
+# version change - nothing rebuilds automatically then. It publishes
+# packages, so it only runs on main (see only-main).
 
 run-name: ${{ inputs.run_tests && format('Build {0}', inputs.channel) || format('Build {0} (no tests)', inputs.channel) }}
 
@@ -19,7 +20,7 @@ on:
         options: [both, stable, daily]
         default: both
       run_tests:
-        description: "Run the tests first (lint and container tests)"
+        description: "Run the validation first (lint and container tests)"
         type: boolean
         default: true
 
@@ -30,10 +31,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test-stable:
-    name: Test STABLE
+  # A run started from another branch stops here, before anything is built.
+  only-main:
+    name: Only on main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Refuse other branches
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Build image only runs on main, not on ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
+  validate-stable:
+    name: Validate STABLE
+    needs: only-main
     if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'stable')
-    uses: ./.github/workflows/_test.yml
+    uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
       smoke: true
@@ -42,14 +58,16 @@ jobs:
 
   build-stable:
     name: Build STABLE
-    needs: test-stable
-    # always() keeps this reachable when the test job was skipped (run_tests
-    # off, or the other channel selected); a real test failure still stops it.
+    needs: [only-main, validate-stable]
+    # always() keeps this reachable when the validation was skipped (run_tests
+    # off, or the other channel selected); a real validation failure still
+    # stops it, and so does the only-main guard.
     if: >-
       always()
+      && needs.only-main.result == 'success'
       && (inputs.channel == 'both' || inputs.channel == 'stable')
-      && needs.test-stable.result != 'failure'
-      && needs.test-stable.result != 'cancelled'
+      && needs.validate-stable.result != 'failure'
+      && needs.validate-stable.result != 'cancelled'
     uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy
@@ -58,10 +76,11 @@ jobs:
       contents: read
       packages: write
 
-  test-daily:
-    name: Test DAILY
+  validate-daily:
+    name: Validate DAILY
+    needs: only-main
     if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'daily')
-    uses: ./.github/workflows/_test.yml
+    uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
       smoke: true
@@ -70,12 +89,13 @@ jobs:
 
   build-daily:
     name: Build DAILY
-    needs: test-daily
+    needs: [only-main, validate-daily]
     if: >-
       always()
+      && needs.only-main.result == 'success'
       && (inputs.channel == 'both' || inputs.channel == 'daily')
-      && needs.test-daily.result != 'failure'
-      && needs.test-daily.result != 'cancelled'
+      && needs.validate-daily.result != 'failure'
+      && needs.validate-daily.result != 'cancelled'
     uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy-daily
