@@ -76,22 +76,30 @@ its assertion in `smoke.sh`.
 
 ## In CI
 
-`_test.yml` is the reusable workflow (lint, then build the image for amd64
+`_validate.yml` is the reusable workflow (lint, then build the image for amd64
 and arm64, each natively, and run both scripts). It is called by:
 
-- `test.yml` - manual only (Actions -> Test -> Run workflow), with a channel
-  choice and a switch for the container stage. Nothing runs on a push, so small
-  commits do not each trigger a build.
-- `auto-update.yml` - between `check` and `build`, so a failing test means
-  nothing is pushed to GHCR and `config.yaml` is never bumped
+- `validate.yml` ("Validate"):
+  - on a push to any branch except `main`: lint only, a quick check while
+    working - small commits do not each trigger a container build
+  - on a pull request to `main`: everything. Its "Validation result" check is
+    required by `main`'s ruleset, so nothing merges unvalidated, a
+    contributor's pull request included
+  - manually (Actions -> Validate -> Run workflow), with a channel choice and a
+    switch for the container stage
+- `auto-update.yml` - between `check` and `build`, so a failing validation
+  means nothing is pushed to GHCR and `config.yaml` is never bumped
 - `build.yml` - before the manual build; untick `run_tests` to skip
+
+`auto-update.yml` and `build.yml` publish packages and only run on `main`; a
+manual run started from another branch stops before anything is built.
 
 Build and test resolve the version (and, for daily, the upstream digest)
 through the same script, `.github/scripts/resolve-build-args.sh`, so a test
 always builds exactly what the build would push.
 
-When anything after the check fails in the auto-update (tests, image build or
-push, commit), the workflow opens an issue titled
+When anything after the check fails in the auto-update (validation, image
+build or push, commit), the workflow opens an issue titled
 `Auto-update blocked: <channel> <version>` and skips that version while the
 issue is open, so the hourly cron does not retry it forever. Close the issue
 after fixing the cause.

@@ -1,6 +1,6 @@
-name: Test (internal)
+name: Validate (internal)
 
-# Reusable workflow (workflow_call), called by test.yml, build.yml and
+# Reusable workflow (workflow_call), called by validate.yml, build.yml and
 # auto-update.yml. Two stages, both scoped to one channel:
 #   lint  - static checks, no Docker, a few seconds
 #   smoke - builds the image locally for amd64 and arm64 (each natively, never

@@ -1,7 +1,7 @@
 name: Auto-update
 
 # Hourly: checks upstream for a new stable release and a new daily build and,
-# per channel, runs check -> test -> build -> commit. Formerly
+# per channel, runs check -> validate -> build -> commit. Formerly
 # update-versions.yml ("Auto-Update BamBuddy Versions").
 
 # The run list shows whether a run came from the hourly schedule or was
@@ -22,11 +22,28 @@ concurrency:
 
 jobs:
 
+  # Publishes packages and commits to main, so only from main. The hourly
+  # schedule always runs there; a manual run started from another branch
+  # stops here, before anything is checked or built.
+  only-main:
+    name: Only on main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Refuse other branches
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Auto-update only runs on main, not on ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
   # ============================================================
-  # STABLE: check -> test -> build -> commit
+  # STABLE: check -> validate -> build -> commit
   # ============================================================
   check-stable:
     name: Check STABLE
+    needs: only-main
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -119,13 +136,13 @@ jobs:
             echo "blocked=false" >> "$GITHUB_OUTPUT"
           fi
 
-  test-stable:
-    name: Test STABLE
+  validate-stable:
+    name: Validate STABLE
     needs: check-stable
     if: needs.check-stable.outputs.changed == 'true'
     permissions:
       contents: read
-    uses: ./.github/workflows/_test.yml
+    uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
       version: ${{ needs.check-stable.outputs.version }}
@@ -133,7 +150,7 @@ jobs:
 
   build-stable:
     name: Build STABLE
-    needs: [check-stable, test-stable]
+    needs: [check-stable, validate-stable]
     if: needs.check-stable.outputs.changed == 'true'
     permissions:
       contents: read
@@ -154,12 +171,17 @@ jobs:
       contents: write
     steps:
       # The current main with full history, so the push below can rebase onto
-      # whatever landed while this run was testing and building.
+      # whatever landed while this run was validating and building. main only
+      # accepts pull requests; its ruleset lets this repository's deploy key
+      # through, so the version commit is pushed with that key (over SSH).
+      # Without the secret, checkout falls back to the token, which the
+      # ruleset rejects.
       - name: Checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
+          ssh-key: ${{ secrets.AUTO_UPDATE_DEPLOY_KEY }}
 
       - name: Apply update and commit
         env:
@@ -232,9 +254,10 @@ jobs:
 
   block-stable:
     name: Block STABLE on failure
-    needs: [check-stable, test-stable, build-stable, commit-stable]
-    # Any failure after check - not just a failed test - would otherwise repeat
-    # every hour: test, build and push again while config.yaml stays old.
+    needs: [check-stable, validate-stable, build-stable, commit-stable]
+    # Any failure after check - not just a failed validation - would otherwise
+    # repeat every hour: validate, build and push again while config.yaml
+    # stays old.
     if: >-
       always()
       && needs.check-stable.outputs.changed == 'true'
@@ -250,16 +273,16 @@ jobs:
           # This job has no checkout, so gh cannot find the repository itself.
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.check-stable.outputs.version }}
-          TEST_RESULT: ${{ needs.test-stable.result }}
+          VALIDATE_RESULT: ${{ needs.validate-stable.result }}
           BUILD_RESULT: ${{ needs.build-stable.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           TITLE="Auto-update blocked: stable ${VERSION}"
-          if [ "${TEST_RESULT}" = "failure" ]; then
-            STAGE="the tests failed before anything was pushed to GHCR or committed to \`config.yaml\`."
+          if [ "${VALIDATE_RESULT}" = "failure" ]; then
+            STAGE="the validation (lint and container tests) failed before anything was pushed to GHCR or committed to \`config.yaml\`."
             IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
           elif [ "${BUILD_RESULT}" = "failure" ]; then
-            STAGE="building or pushing the image failed after the tests passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
+            STAGE="building or pushing the image failed after the validation passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
             IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
           else
             STAGE="the image is in GHCR, but committing the new version to \`config.yaml\` failed."
@@ -276,10 +299,11 @@ jobs:
           gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
 
   # ============================================================
-  # DAILY: check -> test -> build -> commit
+  # DAILY: check -> validate -> build -> commit
   # ============================================================
   check-daily:
     name: Check DAILY
+    needs: only-main
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -421,13 +445,13 @@ jobs:
             echo "blocked=false" >> "$GITHUB_OUTPUT"
           fi
 
-  test-daily:
-    name: Test DAILY
+  validate-daily:
+    name: Validate DAILY
     needs: check-daily
     if: needs.check-daily.outputs.changed == 'true'
     permissions:
       contents: read
-    uses: ./.github/workflows/_test.yml
+    uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
       version: ${{ needs.check-daily.outputs.version }}
@@ -436,7 +460,7 @@ jobs:
 
   build-daily:
     name: Build DAILY
-    needs: [check-daily, test-daily]
+    needs: [check-daily, validate-daily]
     if: needs.check-daily.outputs.changed == 'true'
     permissions:
       contents: read
@@ -458,12 +482,17 @@ jobs:
       contents: write
     steps:
       # The current main with full history, so the push below can rebase onto
-      # whatever landed while this run was testing and building.
+      # whatever landed while this run was validating and building. main only
+      # accepts pull requests; its ruleset lets this repository's deploy key
+      # through, so the version commit is pushed with that key (over SSH).
+      # Without the secret, checkout falls back to the token, which the
+      # ruleset rejects.
       - name: Checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
+          ssh-key: ${{ secrets.AUTO_UPDATE_DEPLOY_KEY }}
 
       - name: Apply update and commit
         env:
@@ -524,9 +553,10 @@ jobs:
 
   block-daily:
     name: Block DAILY on failure
-    needs: [check-daily, test-daily, build-daily, commit-daily]
-    # Any failure after check - not just a failed test - would otherwise repeat
-    # every hour: test, build and push again while config.yaml stays old.
+    needs: [check-daily, validate-daily, build-daily, commit-daily]
+    # Any failure after check - not just a failed validation - would otherwise
+    # repeat every hour: validate, build and push again while config.yaml
+    # stays old.
     if: >-
       always()
       && needs.check-daily.outputs.changed == 'true'
@@ -542,16 +572,16 @@ jobs:
           # This job has no checkout, so gh cannot find the repository itself.
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.check-daily.outputs.version }}
-          TEST_RESULT: ${{ needs.test-daily.result }}
+          VALIDATE_RESULT: ${{ needs.validate-daily.result }}
           BUILD_RESULT: ${{ needs.build-daily.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           TITLE="Auto-update blocked: daily ${VERSION}"
-          if [ "${TEST_RESULT}" = "failure" ]; then
-            STAGE="the tests failed before anything was pushed to GHCR or committed to \`config.yaml\`."
+          if [ "${VALIDATE_RESULT}" = "failure" ]; then
+            STAGE="the validation (lint and container tests) failed before anything was pushed to GHCR or committed to \`config.yaml\`."
             IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
           elif [ "${BUILD_RESULT}" = "failure" ]; then
-            STAGE="building or pushing the image failed after the tests passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
+            STAGE="building or pushing the image failed after the validation passed. Single-architecture images may already be in GHCR, but \`config.yaml\` was not bumped."
             IMPACT="Nothing is broken for users - Home Assistant still serves the previous version."
           else
             STAGE="the image is in GHCR, but committing the new version to \`config.yaml\` failed."

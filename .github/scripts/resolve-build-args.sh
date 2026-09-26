@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resolves what to build for one channel and writes it to $GITHUB_OUTPUT.
-# Shared by _build.yml and _test.yml so both always build the same thing.
+# Shared by _build.yml and _validate.yml so both always build the same thing.
 #
 # Usage: resolve-build-args.sh <context> [version] [digest]
 #   context  channel directory (bambuddy, bambuddy-daily)

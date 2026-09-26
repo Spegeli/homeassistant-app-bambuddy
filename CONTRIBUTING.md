@@ -31,6 +31,8 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **PR description:** what changed, why, and how you tested it (a log excerpt is ideal).
 
+**Automatic checks:** every pull request to `main` runs the **Validate** workflow – static checks, then the image built and started on amd64 and arm64 against a mock Supervisor. A pull request can only be merged once the **Validation result** check is green. If this is your first contribution here, the checks start once the maintainer approves them (a GitHub default for first-time contributors).
+
 ## Testing locally
 
 You need Docker with Buildx, and Python 3 with PyYAML for the static checks. The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
