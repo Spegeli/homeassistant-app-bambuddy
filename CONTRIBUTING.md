@@ -61,6 +61,23 @@ On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
 
 `smoke.sh` starts the image against a small mock of the Home Assistant Supervisor. That matters: the run script reads the app options through the Supervisor API, so a container started without it skips every option and never runs the code you changed.
 
+## Workflows in your fork
+
+GitHub keeps Actions switched off in a fork until you enable them on its **Actions** tab.
+
+**Validate** works as it is – it needs no secrets. In your fork it lints every push to a branch other than `main` and runs the full validation on pull requests to your fork's `main`. Your pull request here is validated in this repository anyway.
+
+**Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead, change:
+- `image:` in `.github/workflows/auto-update.yml` and `.github/workflows/build.yml` (two per file)
+- `image:` in both `config.yaml`, or Home Assistant keeps pulling this repository's images
+- the expected image name in `tests/lint.py`, or the validation fails
+- the visibility of your new GHCR packages to public – new packages start private, and Home Assistant cannot pull private ones
+- optionally `org.opencontainers.image.source` in both Dockerfiles and `repository.json`, and enable Issues in your fork (the Auto-update opens an issue when it gets blocked)
+
+Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPDATE_DEPLOY_KEY` secret, the Auto-update commits with the regular token, which works as long as your `main` has no ruleset that blocks it.
+
+**Keep these changes out of pull requests here.** Start a pull request branch from this repository's `main` (e.g. `git switch -c my-fix upstream/main`), not from a fork `main` that carries them.
+
 ## After merging
 
 - Changes to `config.yaml`, translations or `DOCS.md` take effect when Home Assistant reloads the repository.
