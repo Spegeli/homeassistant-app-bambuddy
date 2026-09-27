@@ -6,3 +6,6 @@ contact_links:
   - name: BamBuddy documentation
     url: https://wiki.bambuddy.cool
     about: Setup guides, features, virtual printer ports and FAQ for BamBuddy.
+  - name: Home Assistant Community Forum
+    url: https://community.home-assistant.io
+    about: General Home Assistant questions unrelated to this app.
