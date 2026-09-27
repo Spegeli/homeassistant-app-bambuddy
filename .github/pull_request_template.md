@@ -18,8 +18,8 @@
 ## Type of change
 
 - [ ] Bug fix
-- [ ] New feature or option
-- [ ] Documentation or translations
+- [ ] New feature
+- [ ] Documentation
 - [ ] Refactor / code quality
 - [ ] CI / repository
 
