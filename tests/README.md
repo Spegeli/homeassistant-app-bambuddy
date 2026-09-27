@@ -51,8 +51,12 @@ one uvicorn process, the `/config` symlinks, a clean log, and the environment
 the run script exported. The trust-store scenarios also make a real HTTPS
 request with httpx and the uvicorn process's own environment, against a server
 certificate signed by a CA generated for the test. `defaults` runs the image's
-`HEALTHCHECK` command against the app. It finishes with the shutdown path
-(exit 256, no halt) and the crash path (exit 3 halts the container).
+`HEALTHCHECK` command against the app, then stops it: a normal stop (SIGTERM)
+must end the container with 0. Four lifecycle cases follow, each with a
+stand-in service instead of BamBuddy: a crash (exit 3), death by signal 9
+(137), SIGTERM outside a container stop (0) and a plain exit 0 (0). Every case
+must halt the container with that exit code - restarting is left to Home
+Assistant's watchdog, never done by s6 inside the container.
 
 The mock matters: bashio talks to `${SUPERVISOR_API}`, and without it every
 `bashio::config` call fails and the run script skips every option block, so the

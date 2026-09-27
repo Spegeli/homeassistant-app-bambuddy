@@ -156,6 +156,14 @@ The app options from the **Configuration** tab are reset to their defaults on un
 
 ---
 
+## Crashes and the Watchdog
+
+If BamBuddy crashes or is killed, for example by the system when memory runs out, the app stops and the log says why (e.g. `BamBuddy was killed by signal 9, halting app`). It does not restart itself inside the container.
+
+To have Home Assistant restart it automatically, turn on **Watchdog** on the app's **Info** tab. The watchdog also restarts BamBuddy when its health check stops answering, and it gives up after repeated failed restarts instead of looping forever.
+
+---
+
 ## Support
 
 For issues related to the **Home Assistant App packaging**, open an issue at:
