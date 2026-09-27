@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Boots the image once per scenario against a mock Supervisor and asserts what
-# the run script did with the options, then checks the shutdown and crash paths.
+# the run script did with the options, then checks every way the service can end
+# (normal stop, crash, killed by a signal, exit 0).
 #
 # Usage: tests/smoke.sh <image> [scenario ...]
 #   tests/smoke.sh bambuddy:test
@@ -328,49 +329,82 @@ for scenario in "${SCENARIOS[@]}"; do
     tail -25 <<<"${LOG}" | sed 's/^/  | /'
   fi
 
-  # Shutdown path: s6 reports 256 for "terminated by a signal", so finish must
-  # log the plain exit line and must not halt the container.
+  # Shutdown path: Home Assistant stops the app with SIGTERM; uvicorn shuts down
+  # and re-raises it, so s6 reports 256 with signal 15. A normal stop must end
+  # the container with 0 - the Supervisor warns about apps that exit with 143 -
+  # and must not be reported as a crash.
   if [ "${scenario}" = "defaults" ]; then
     docker stop -t 30 "${APP}" >/dev/null
     STOPLOG=$(docker logs "${APP}" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
     grep -q "Application shutdown complete" <<<"${STOPLOG}" \
       && good "uvicorn shut down gracefully" || problem "no graceful uvicorn shutdown"
-    grep -q "BamBuddy exited (code 256)" <<<"${STOPLOG}" \
-      && good "finish logged the signal exit" || problem "finish did not log 'BamBuddy exited (code 256)'"
-    grep -q "crashed" <<<"${STOPLOG}" \
+    grep -q "BamBuddy stopped (SIGTERM)" <<<"${STOPLOG}" \
+      && good "finish recognised the normal stop" || problem "finish did not log 'BamBuddy stopped (SIGTERM)'"
+    grep -qE "crashed|killed by signal" <<<"${STOPLOG}" \
       && problem "a normal stop was reported as a crash" || good "a normal stop is not a crash"
+    code=$(docker inspect -f '{{.State.ExitCode}}' "${APP}")
+    [ "${code}" = "0" ] && good "container exited with 0" \
+      || problem "container exit code after a normal stop is '${code}', expected 0"
   fi
 
   cleanup
   rm -rf "${RUNDIR}" 2>/dev/null
 done
 
-# Crash path: a service exit other than 0/256 must halt the container and carry
-# the exit code out, so Home Assistant shows the app as stopped.
-echo ""
-echo "--- lifecycle: crash path"
-cleanup
-CRASHDIR=$(mktemp -d "${TMPDIR:-/tmp}/bambuddy-crash.XXXXXX")
-printf '#!/usr/bin/with-contenv bashio\nbashio::log.info "fake service, exiting 3"\nexit 3\n' \
-  > "${CRASHDIR}/run"
-chmod 755 "${CRASHDIR}/run"
-docker run -d --name "${APP}" \
-  -e SUPERVISOR_TOKEN=smoke-test \
-  -v "$(host_path "${CRASHDIR}/run")":/etc/services.d/bambuddy/run:ro \
-  "${IMAGE}" >/dev/null
-for _ in $(seq 1 20); do
-  state=$(docker inspect -f '{{.State.Status}}' "${APP}")
-  [ "${state}" = "exited" ] && break
-  sleep 1
-done
-code=$(docker inspect -f '{{.State.ExitCode}}' "${APP}")
-CRASHLOG=$(docker logs "${APP}" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
-[ "${code}" = "3" ] && good "container exited with the service's code 3" \
-  || problem "container exit code is '${code}', expected 3"
-grep -q "BamBuddy crashed (exit code 3), halting app" <<<"${CRASHLOG}" \
-  && good "finish logged the crash" || problem "finish did not log the crash"
-cleanup
-rm -rf "${CRASHDIR}" 2>/dev/null
+# Lifecycle: a stand-in service replaces BamBuddy, so finish can be driven
+# through every way the service can end. Each must halt the container instead
+# of letting s6 restart the service - restarting is the job of Home Assistant's
+# watchdog, which the user switches on or off - and carry the exit code out:
+# 0 for a stop, 128 + N for signal N, the service's own code for a crash.
+#   lifecycle_case <title> <run script line> <s6-svc option or ""> <exit code> <log line>
+lifecycle_case() {
+  local title="$1" body="$2" action="$3" want_code="$4" want_log="$5" dir state code log
+  echo ""
+  echo "--- lifecycle: ${title}"
+  cleanup
+  dir=$(mktemp -d "${TMPDIR:-/tmp}/bambuddy-life.XXXXXX")
+  printf '#!/usr/bin/with-contenv bashio\n%s\n' "${body}" > "${dir}/run"
+  chmod 755 "${dir}/run"
+  docker run -d --name "${APP}" -e SUPERVISOR_TOKEN=smoke-test \
+    -v "$(host_path "${dir}/run")":/etc/services.d/bambuddy/run:ro "${IMAGE}" >/dev/null
+  if [ -n "${action}" ]; then
+    # Signal the running service through s6, as the kernel or a user would.
+    for _ in $(seq 1 20); do
+      [ "$(docker exec "${APP}" /command/s6-svstat -o up /run/service/bambuddy 2>/dev/null)" = "true" ] && break
+      sleep 0.5
+    done
+    docker exec "${APP}" /command/s6-svc "${action}" /run/service/bambuddy \
+      || problem "could not signal the service (s6-svc ${action})"
+  fi
+  for _ in $(seq 1 20); do
+    state=$(docker inspect -f '{{.State.Status}}' "${APP}")
+    [ "${state}" = "exited" ] && break
+    sleep 1
+  done
+  code=$(docker inspect -f '{{.State.ExitCode}}' "${APP}")
+  log=$(docker logs "${APP}" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
+  [ "${state}" = "exited" ] && good "container stopped, the service was not restarted" \
+    || problem "container is still ${state}: s6 restarted the service"
+  [ "${code}" = "${want_code}" ] && good "container exit code ${code}" \
+    || problem "container exit code is '${code}', expected ${want_code}"
+  if grep -qF "${want_log}" <<<"${log}"; then
+    good "finish logged: ${want_log}"
+  else
+    problem "finish did not log: ${want_log}"
+    tail -5 <<<"${log}" | sed 's/^/  | /'
+  fi
+  cleanup
+  rm -rf "${dir}" 2>/dev/null
+}
+
+lifecycle_case "crash" 'bashio::log.info "fake service, exiting 3"; exit 3' "" 3 \
+  "BamBuddy crashed (exit code 3), halting app"
+lifecycle_case "killed by a signal (e.g. out of memory)" 'exec sleep infinity' -k 137 \
+  "BamBuddy was killed by signal 9, halting app"
+lifecycle_case "SIGTERM outside a container stop" 'exec sleep infinity' -t 0 \
+  "BamBuddy stopped (SIGTERM)"
+lifecycle_case "exit 0 without a stop request" 'exit 0' "" 0 \
+  "BamBuddy exited (code 0)"
 
 echo ""
 if [ "${FAIL}" = 0 ]; then
