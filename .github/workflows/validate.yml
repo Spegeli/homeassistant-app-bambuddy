@@ -62,11 +62,13 @@ jobs:
       smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   # The one check main's ruleset requires; a fixed name stays valid when the
-  # jobs above change. always(), not !cancelled(): a skipped job counts as
-  # passed for a required check, so a cancelled validation must still run
-  # this job and fail it.
+  # jobs above change. Only a pull request run may report under that name: the
+  # ruleset matches checks by name on the commit, so the lint-only run of a
+  # push to the same commit would satisfy it before the container tests end.
+  # always(), not !cancelled(): a skipped job counts as passed for a required
+  # check, so a cancelled validation must still run this job and fail it.
   result:
-    name: Validation result
+    name: ${{ github.event_name == 'pull_request' && 'Validation result' || 'Validation summary' }}
     needs: [stable, daily]
     if: always()
     runs-on: ubuntu-24.04

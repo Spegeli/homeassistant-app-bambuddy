@@ -91,6 +91,10 @@ and arm64, each natively, and run both scripts). It is called by:
     contributor's pull request included
   - manually (Actions -> Validate -> Run workflow), with a channel choice and a
     switch for the container stage
+
+  Push and manual runs report as "Validation summary" instead: the ruleset
+  matches checks by name on the commit, and a lint-only run must not stand in
+  for the pull request's full validation.
 - `auto-update.yml` - between `check` and `build`, so a failing validation
   means nothing is pushed to GHCR and `config.yaml` is never bumped
 - `build.yml` - before the manual build; untick `run_tests` to skip
