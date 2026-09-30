@@ -46,9 +46,21 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **Don't add** system packages the upstream image already ships (e.g. `ffmpeg`, `curl`, `ca-certificates`, OpenCV).
 
-## Testing locally
+## Development setup
 
-You need Docker with Buildx, and Python 3 with PyYAML for the static checks. The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
+The app is a container image built on top of BamBuddy's: a change to a Dockerfile or to `rootfs/` takes effect only in a new image, while Home Assistant reads `config.yaml`, the translations and `DOCS.md` straight from the repository.
+
+1. Fork and clone the repository, and branch from `dev`.
+2. Install Docker with Buildx, and Python 3 with PyYAML for the static checks.
+3. Test locally as below. You need no Home Assistant for it: `tests/smoke.sh` runs the image against a mock Supervisor.
+
+Home Assistant installs this app as a ready-made image from GHCR (`image:` in `config.yaml`). To try a change to the image on a real Home Assistant, publish your own image first — see [Workflows in your fork](#workflows-in-your-fork).
+
+To see what BamBuddy is doing, turn on **Debug** in the app's **Configuration** tab. The **Log** tab shows the output; BamBuddy's own log files are in the app's configuration folder (`addon_configs` → `[slug]_bambuddy` or `[slug]_bambuddy_daily` → `logs`).
+
+### Testing locally
+
+The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
 
 ```bash
 python3 tests/lint.py
@@ -70,7 +82,19 @@ docker buildx build --load -t bambuddy:test \
   bambuddy-daily/
 ```
 
-On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
+On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`. To repeat a single scenario: `bash tests/smoke.sh bambuddy:test all-on`.
+
+On Windows, run the scripts from Git Bash. Don't export `MSYS_NO_PATHCONV` globally: `smoke.sh` sets it for Docker only, and exported it breaks the `curl` the script uses. If a scenario fails only now and then, repeat it alone.
+
+If you change a workflow, run [actionlint](https://github.com/rhysd/actionlint) as well — CI does not:
+
+```bash
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest
+```
+
+On Windows in Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -w "$PWD"):/repo" -w /repo rhysd/actionlint:latest`.
+
+CI runs the same checks as above, except actionlint (see [Continuous integration](#continuous-integration)).
 
 ## Things that are easy to get wrong
 
