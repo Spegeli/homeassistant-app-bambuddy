@@ -15,7 +15,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 - **Report a security vulnerability** — privately, never as a public issue: see the [security policy](SECURITY.md).
 - **Report a bug** — [open a bug report](https://github.com/Spegeli/homeassistant-app-bambuddy/issues/new?template=bug_report.yml) with the channel (Stable / Daily), the app and Home Assistant versions, the architecture and the **full app log** from the startup on.
 - **Suggest a feature** — [open a feature request](https://github.com/Spegeli/homeassistant-app-bambuddy/issues/new?template=feature_request.yml).
-- **Improve translations** — the app options are translated into English, German, French, Spanish and Italian (`translations/*.yaml` in both channels); corrections by native speakers are welcome.
+- **Improve translations** — corrections and new languages are welcome, see [Translations](#translations).
 - **Submit a change** — see [Pull requests](#pull-requests).
 
 ## Branches
@@ -38,7 +38,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **New or changed options** need all of these, in both channels and in the same order as in `config.yaml`:
 - `options` and `schema` in `config.yaml`
-- every file in `translations/` (`en`, `de`, `fr`, `es`, `it`)
+- every file in `translations/` (see [Translations](#translations))
 - the options section in `DOCS.md`
 - a scenario in `tests/scenarios/` and its assertions in `tests/smoke.sh`
 
@@ -127,6 +127,19 @@ Home Assistant pulls the image named in `config.yaml` from GHCR. At start, s6-ov
 - **A new file under `rootfs/` needs its own `COPY` line** in both Dockerfiles: they copy only `rootfs/etc/services.d/bambuddy`.
 - **The build warning `InvalidDefaultArgInFrom` is expected.** `BAMBUDDY_VERSION` (and the Daily's `BAMBUDDY_DIGEST`) deliberately have no default, so an image never drifts from `config.yaml`. Don't add one.
 - **uvicorn listens on `0.0.0.0`, not `::`.** `::` fails to start on hosts with IPv6 switched off.
+
+## Translations
+
+The app options are translated into English (`en`), German (`de`), French (`fr`), Spanish (`es`) and Italian (`it`). Home Assistant shows them in the app's **Configuration** tab, in each user's profile language. Corrections by native speakers are welcome.
+
+The files are `translations/<language>.yaml`, the same in both channels. Each lists every option under `configuration:`, in the order of `options:` in `config.yaml`, with a `name` and a `description`; `tests/lint.py` checks that.
+
+- **Changing a text means changing it in every file:** all five languages, in both channels. If you cannot write one of the languages, say so in the pull request rather than leaving English in its file.
+- Keep the product name **BamBuddy**, paths such as `/share` and file names as they are.
+- Name Home Assistant's menus as Home Assistant labels them in that language — for example "Settings -> System -> Storage" in English, "Einstellungen -> System -> Speicher" in German.
+- Write the files as UTF-8; German uses real umlauts.
+
+To add a language, copy `translations/en.yaml` to `translations/<code>.yaml` in both channels, translate the values, and add the code to `LANGUAGES` in `tests/lint.py`.
 
 ## Continuous integration
 
