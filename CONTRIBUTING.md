@@ -94,7 +94,8 @@ One workflow, **Validate** (`.github/workflows/validate.yml`), checks every chan
 
 When Validate runs:
 
-- **A push to any branch but `main`** — lint only.
+- **A push to `dev`** — everything.
+- **A push to any other branch but `main`** — lint only.
 - **A pull request to `dev` or `main`** — everything.
 - **By hand** — Actions → Validate → Run workflow, with a choice of channel and of the container tests.
 
@@ -106,7 +107,7 @@ A pull request from a fork runs the same checks with a read-only token and no se
 
 GitHub keeps Actions switched off in a fork until you enable them on its **Actions** tab.
 
-**Validate** works as it is – it needs no secrets. In your fork it lints every push to a branch other than `main` and runs the full validation on pull requests to your fork's `dev` or `main`. Your pull request here is validated in this repository anyway.
+**Validate** works as it is – it needs no secrets. In your fork it validates every push to a branch other than `main` – fully on `dev`, lint only elsewhere – and runs the full validation on pull requests to your fork's `dev` or `main`. Your pull request here is validated in this repository anyway.
 
 **Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead, change:
 - `image:` in `.github/workflows/auto-update.yml` and `.github/workflows/build.yml` (two per file)

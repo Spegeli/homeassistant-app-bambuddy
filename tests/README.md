@@ -84,8 +84,9 @@ its assertion in `smoke.sh`.
 and arm64, each natively, and run both scripts). It is called by:
 
 - `validate.yml` ("Validate"):
-  - on a push to any branch except `main`: lint only, a quick check while
-    working - small commits do not each trigger a container build
+  - on a push to `dev`: everything - `dev` only receives finished topics
+  - on a push to any other branch except `main`: lint only, a quick check -
+    small commits do not each trigger a container build
   - on a pull request to `dev` or `main`: everything. A pull request to `main`
     reports "Validation result", the check `main`'s ruleset requires, so
     nothing merges unvalidated; contributions go to `dev` and are merged

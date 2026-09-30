@@ -4,8 +4,10 @@ name: Validate
 # shell syntax) and the container tests - the image built natively on amd64
 # and arm64, never pushed, then image-checks.sh and smoke.sh (all in
 # _validate.yml).
-#   push to any branch but main - lint only, a quick check while working;
-#                                 summed up as "Validation summary"
+#   push to dev                 - everything: dev only receives finished
+#                                 topics; summed up as "Validation summary"
+#   push to another branch      - lint only, a quick check; summed up as
+#   (never main)                  "Validation summary"
 #   pull request to main        - everything, summed up as "Validation
 #                                 result": the check main's ruleset requires,
 #                                 so nothing merges unvalidated
@@ -25,6 +27,8 @@ name: Validate
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('Validate PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
+      || github.event_name == 'push' && github.ref_name == 'dev'
+      && 'Validate dev'
       || github.event_name == 'push'
       && format('Validate {0} (lint only)', github.ref_name)
       || inputs.smoke && format('Validate {0} on {1}', inputs.channel, github.ref_name)
@@ -62,7 +66,7 @@ jobs:
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   daily:
     name: DAILY
@@ -70,7 +74,7 @@ jobs:
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   # The one check main's ruleset requires; a fixed name stays valid when the
   # jobs above change. Only a pull request to main may report under that name:
