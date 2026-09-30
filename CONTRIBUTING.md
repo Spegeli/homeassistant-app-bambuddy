@@ -96,6 +96,27 @@ On Windows in Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -w "$P
 
 CI runs the same checks as above, except actionlint (see [Continuous integration](#continuous-integration)).
 
+## Project layout
+
+The two channels have the same structure; paths below `bambuddy/` apply to `bambuddy-daily/` as well.
+
+| Path | Responsibility |
+|---|---|
+| `bambuddy/config.yaml` | The app for Home Assistant: image, permissions, options and their schema, watchdog |
+| `bambuddy/Dockerfile` | The image: BamBuddy's upstream image plus s6-overlay and bashio, labels, health check |
+| `bambuddy/rootfs/etc/services.d/bambuddy/run` | Starts BamBuddy: sets up `/config`, turns the app options into environment variables, ends with `exec uvicorn` |
+| `bambuddy/rootfs/etc/services.d/bambuddy/finish` | Runs when BamBuddy ends: logs why and stops the app |
+| `bambuddy/translations/` | Names and descriptions of the options in the app's **Configuration** tab (`en`, `de`, `fr`, `es`, `it`) |
+| `bambuddy/DOCS.md`, `bambuddy/README.md` | The app's **Documentation** tab and its card in the app store |
+| `bambuddy/CHANGELOG.md` | BamBuddy's release notes, written by the Auto-update workflow |
+| `bambuddy-daily/upstream.digest` | The BamBuddy daily image the Daily channel is pinned to, written by the Auto-update workflow |
+| `.github/workflows/` | Validate, Auto-update and Build image, and their shared parts `_validate.yml` and `_build.yml` |
+| `.github/scripts/resolve-build-args.sh` | What to build — version, digest and image description — for both building and validating |
+| `tests/` | `lint.py`, `image-checks.sh`, `smoke.sh` with its Supervisor mock and scenarios (see [tests/README.md](tests/README.md)) |
+| `repository.json` | The repository's name and maintainer for Home Assistant's app store |
+
+Home Assistant pulls the image named in `config.yaml` from GHCR. At start, s6-overlay runs `run`, which reads the options through the Supervisor API (bashio) and starts BamBuddy; when BamBuddy ends, `finish` stops the app, and Home Assistant's watchdog decides whether it starts again. The Auto-update workflow watches BamBuddy's releases and daily builds, validates and publishes each new image, and then sets the new version in `config.yaml`.
+
 ## Things that are easy to get wrong
 
 - **Line endings.** `run` and `finish` fail in the image with Windows line endings (CRLF). `.gitattributes` keeps LF in the repository; on Windows, make sure Git does not convert them on checkout (`git config core.autocrlf false`). `tests/lint.py` checks it.
