@@ -1,45 +1,76 @@
-# Code of Conduct
+# Contributor Covenant Code of Conduct
 
-## Our Commitment
+## Our Pledge
 
-This project packages [BamBuddy](https://github.com/maziggy/bambuddy) as a Home Assistant app. Everyone who takes part — by opening issues, commenting, or contributing pull requests — should find a friendly and respectful place here, regardless of background or experience level.
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
 
-## Expected Behavior
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
-- **Be respectful.** Treat others with kindness. Disagreeing is fine; personal attacks are not.
-- **Be constructive.** Focus on the problem and on ideas, not on people. Offer helpful feedback.
-- **Be patient.** This is a hobby project maintained in spare time. Answers and fixes can take a while.
-- **Be inclusive.** Welcome newcomers and people of all experience levels.
-- **Stay on topic.** Keep issues and discussions about this Home Assistant app. Questions or bugs about BamBuddy itself belong in the [upstream project](https://github.com/maziggy/bambuddy/issues).
+## Our Standards
 
-## Unacceptable Behavior
+Examples of behavior that contributes to a positive environment:
 
-- Insults, harassment, or personal attacks
-- Discriminatory, offensive, or sexualized language or imagery
-- Trolling, spam, or deliberately disruptive behavior
-- Publishing other people's private information without their permission
-- Repeatedly demanding support or fixes in a hostile way
+- Demonstrating empathy and kindness toward other people
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience
+- Focusing on what is best not just for us as individuals, but for the overall community
+
+Examples of unacceptable behavior:
+
+- The use of sexualized language or imagery, and sexual attention or advances of any kind
+- Trolling, insulting or derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information, such as a physical or email address, without their explicit permission
+- Other conduct which could reasonably be considered inappropriate in a professional setting
+
+## Enforcement Responsibilities
+
+Community leaders are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior that they deem inappropriate, threatening, offensive, or harmful.
+
+Community leaders have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, and will communicate reasons for moderation decisions when appropriate.
 
 ## Scope
 
-This Code of Conduct applies to all spaces of this repository: issues, pull requests, discussions, and commit comments.
-
-## Reporting
-
-There is no email contact for this project, and GitHub offers no private messages. Please report problems through GitHub:
-
-- **To the maintainer:** open an issue and mention [@Spegeli](https://github.com/Spegeli). Keep sensitive details out of the issue; the maintainer will follow up.
-- **Serious abuse** (harassment, spam, illegal content): use **Report content** in the ⋯ menu of the comment or issue. This report goes to GitHub.
+This Code of Conduct applies within all community spaces — including issues, pull requests, commit messages, and code review — and also applies when an individual is officially representing the community in public spaces.
 
 ## Enforcement
 
-The maintainer decides on the appropriate response to violations. Possible actions include:
+This is a small project with a single maintainer, [@Spegeli](https://github.com/Spegeli), and GitHub has no private messages. To report abusive, harassing, or otherwise unacceptable behavior:
 
-1. A warning
-2. Editing, hiding, or deleting comments, issues, or pull requests
-3. Locking a conversation
-4. A temporary or permanent block from the repository
+- **In public:** mention @Spegeli where it happens, in the issue or pull request concerned. If there is no such place, open an issue and mention @Spegeli there.
+- **In private:** choose **Report content** in the ⋯ menu of the issue, pull request, or comment concerned, or **Block or report** on the person's profile. GitHub Support handles these reports.
+
+All complaints will be reviewed and investigated promptly and fairly. The maintainer is obligated to respect the privacy and security of the reporter of any incident.
+
+## Enforcement Guidelines
+
+Community leaders will follow these Community Impact Guidelines in determining the consequences for any action they deem in violation of this Code of Conduct:
+
+### 1. Correction
+
+**Community Impact**: Use of inappropriate language or other behavior deemed unprofessional or unwelcome in the community.
+
+**Consequence**: A private, written warning from community leaders, providing clarity around the nature of the violation and an explanation of why the behavior was inappropriate. A public apology may be requested.
+
+### 2. Warning
+
+**Community Impact**: A violation through a single incident or series of actions.
+
+**Consequence**: A warning with consequences for continued behavior. No interaction with the people involved, including unsolicited interaction with those enforcing the Code of Conduct, for a specified period of time. This includes avoiding interactions in community spaces as well as external channels like social media. Violating these terms may lead to a temporary or permanent ban.
+
+### 3. Temporary Ban
+
+**Community Impact**: A serious violation of community standards, including sustained inappropriate behavior.
+
+**Consequence**: A temporary ban from any sort of interaction or public communication with the community for a specified period of time. No public or private interaction with the people involved, including unsolicited interaction with those enforcing the Code of Conduct, is allowed during this period. Violating these terms may lead to a permanent ban.
+
+### 4. Permanent Ban
+
+**Community Impact**: Demonstrating a pattern of violation of community standards, including sustained inappropriate behavior, harassment of an individual, or aggression toward or disparagement of classes of individuals.
+
+**Consequence**: A permanent ban from any sort of public interaction within the community.
 
 ## Attribution
 
-Inspired by the [BamBuddy Code of Conduct](https://github.com/maziggy/bambuddy/blob/main/CODE_OF_CONDUCT.md) and the [Contributor Covenant](https://www.contributor-covenant.org/).
+Adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1; the Community Impact Guidelines were inspired by [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).

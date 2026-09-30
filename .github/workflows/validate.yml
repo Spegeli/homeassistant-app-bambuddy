@@ -1,19 +1,34 @@
 name: Validate
 
-# Checks a change without publishing anything: static checks, and where it
-# matters the image built and booted on amd64 and arm64 (never pushed).
-#   push to any branch but main - lint only, a quick check while working
-#   pull request to main        - everything. "Validation result" is the check
-#                                 main's ruleset requires, so nothing merges
-#                                 unvalidated - a contributor's pull request
-#                                 included (read-only token, no secrets)
-#   manual                      - channel and container tests as chosen
+# Checks a change without publishing anything: the static checks (lint.py and
+# shell syntax) and the container tests - the image built natively on amd64
+# and arm64, never pushed, then image-checks.sh and smoke.sh (all in
+# _validate.yml).
+#   push to dev                 - everything: dev only receives finished
+#                                 topics; summed up as "Validation summary"
+#   push to another branch      - lint only, a quick check; summed up as
+#   (never main)                  "Validation summary"
+#   pull request to main        - everything, summed up as "Validation
+#                                 result": the check main's ruleset requires,
+#                                 so nothing merges unvalidated
+#   pull request to dev         - everything, so a contribution is checked
+#                                 before it merges; summed up as "Validation
+#                                 summary", so that it never answers for
+#                                 main's check on the same commit
+#   either pull request runs a contributor's code from a fork with a
+#   read-only token and no secrets: pull_request, never pull_request_target
+#   manual                      - on any branch; channel and container tests
+#                                 as chosen; summed up as "Validation summary"
 # main itself needs no run: changes only arrive through a validated pull
-# request, or as the auto-update's version commit, which it validated first.
+# request, or as the auto-update's version commit, validated just before.
+# No schedule: GitHub disables a workflow that has one after 60 days without
+# repository activity, and then it runs on no push either.
 
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('Validate PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)
+      || github.event_name == 'push' && github.ref_name == 'dev'
+      && 'Validate dev'
       || github.event_name == 'push'
       && format('Validate {0} (lint only)', github.ref_name)
       || inputs.smoke && format('Validate {0} on {1}', inputs.channel, github.ref_name)
@@ -23,7 +38,7 @@ on:
   push:
     branches-ignore: [main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
     inputs:
       channel:
@@ -51,7 +66,7 @@ jobs:
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   daily:
     name: DAILY
@@ -59,16 +74,17 @@ jobs:
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   # The one check main's ruleset requires; a fixed name stays valid when the
-  # jobs above change. Only a pull request run may report under that name: the
-  # ruleset matches checks by name on the commit, so the lint-only run of a
-  # push to the same commit would satisfy it before the container tests end.
+  # jobs above change. Only a pull request to main may report under that name:
+  # the ruleset matches checks by name on the commit, so a push's lint-only run
+  # or a pull request to dev on the same commit would otherwise satisfy it for
+  # a pull request to main that was never validated against main.
   # always(), not !cancelled(): a skipped job counts as passed for a required
   # check, so a cancelled validation must still run this job and fail it.
   result:
-    name: ${{ github.event_name == 'pull_request' && 'Validation result' || 'Validation summary' }}
+    name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'Validation result' || 'Validation summary' }}
     needs: [stable, daily]
     if: always()
     runs-on: ubuntu-24.04

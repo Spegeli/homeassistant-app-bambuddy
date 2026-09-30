@@ -9,3 +9,6 @@ contact_links:
   - name: Home Assistant Community Forum
     url: https://community.home-assistant.io
     about: General Home Assistant questions unrelated to this app.
+  - name: Report a security vulnerability
+    url: https://github.com/Spegeli/homeassistant-app-bambuddy/security/advisories/new
+    about: Found a vulnerability? Report it privately here – never in a public issue.
