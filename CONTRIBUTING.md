@@ -28,7 +28,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 1. Fork the repository and branch from `dev`.
 2. Keep the change focused — one topic per pull request.
-3. Please write the commit messages as [Conventional Commits](https://www.conventionalcommits.org) — `fix:`, `feat:`, `docs:`, `test:`, `ci:` or `chore:`, e.g. `fix: keep the custom CA when its file name has spaces`.
+3. Please write the commit messages as [Conventional Commits](https://www.conventionalcommits.org) — see [Commit messages](#commit-messages).
 4. Open the pull request against **`dev`** and fill in the template.
 5. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green. A first-time contributor's run waits for the maintainer's approval, so run the tests yourself first (see [Testing locally](#testing-locally)): you get the answer sooner.
 
@@ -162,6 +162,24 @@ Validate does not run on `main` itself: changes reach it only through a validate
 One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires: a pull request to `main` merges only when it is green. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green. A run by hand never counts for a pull request anyway, so leaving a channel or the container tests out cannot stand in for the required check.
 
 A pull request from a fork, to `dev` or to `main`, runs the same checks, with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
+
+## Commit messages
+
+Please write commit messages as [Conventional Commits](https://www.conventionalcommits.org): `<type>: <description>`, optionally with a scope, as in `fix(run): …`. Nothing is generated from them here, but they keep the history readable and show at a glance what a pull request touches.
+
+| Type | For |
+|---|---|
+| `feat` | something new for the people who run the app, such as a new option |
+| `fix` | a bug in the app: the run script, a Dockerfile, `config.yaml` |
+| `docs` | what users read: `DOCS.md`, the READMEs, the option texts in `translations/` |
+| `refactor` | a restructuring that changes no behavior |
+| `test` | the tests alone |
+| `ci` | the workflows and their scripts |
+| `chore` | everything else in the repository: this file, the issue and pull request templates, the other community files |
+
+- Write the description in the imperative and lower case, for the people who run the app: `fix: keep the custom CA when its file name has spaces`.
+- Mark a change that breaks an installation with `!` after the type, as in `feat!: rename an option` — users have to act after such an update.
+- `chore: update BamBuddy … -> …` and `chore: pin BamBuddy Daily …` are the Auto-update workflow's own commits; don't write those by hand.
 
 ## Workflows in your fork
 
