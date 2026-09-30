@@ -22,13 +22,15 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 - **`main`** is what Home Assistant installs: it reads `config.yaml`, the translations and `DOCS.md` from there. It changes only through the pull request from `dev`, which merges only with a green **Validation result**, and through the version commits of the Auto-update workflow.
 - **`dev`** is where changes come together before they go live, contributions included.
+- **Topic branches** start from `dev` and go back into it.
 
 ## Pull requests
 
 1. Fork the repository and branch from `dev`.
 2. Keep the change focused — one topic per pull request.
-3. Open the pull request against **`dev`** and fill in the template.
-4. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green.
+3. Please write the commit messages as [Conventional Commits](https://www.conventionalcommits.org) — `fix:`, `feat:`, `docs:`, `test:`, `ci:` or `chore:`, e.g. `fix: keep the custom CA when its file name has spaces`.
+4. Open the pull request against **`dev`** and fill in the template.
+5. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green. A first-time contributor's run waits for the maintainer's approval, so run the tests yourself first (see [Testing locally](#testing-locally)): you get the answer sooner.
 
 **Channels.** There are two channels: `bambuddy/` (Stable) and `bambuddy-daily/` (Daily). By default, apply a change to **both** so they stay consistent. Exception: if the change depends on an upstream feature that so far only exists in BamBuddy's daily build, change `bambuddy-daily/` only. Stable follows once that feature ships in a stable BamBuddy release. The pull request template asks which channels you changed.
 
@@ -43,8 +45,6 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 **Runtime settings** (paths, environment variables, option handling) belong in `rootfs/etc/services.d/bambuddy/run`.
 
 **Don't add** system packages the upstream image already ships (e.g. `ffmpeg`, `curl`, `ca-certificates`, OpenCV).
-
-**Commit messages:** please write them as [Conventional Commits](https://www.conventionalcommits.org) — `fix:`, `feat:`, `docs:`, `test:`, `ci:` or `chore:`, e.g. `fix: keep the custom CA when its file name has spaces`.
 
 ## Testing locally
 
@@ -99,7 +99,9 @@ When Validate runs:
 - **A pull request to `dev` or `main`** — everything.
 - **By hand** — Actions → Validate → Run workflow, with a choice of channel and of the container tests.
 
-One last check sums up each run. A pull request to `main` calls it **Validation result**, the check `main` requires. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green.
+Validate does not run on `main` itself: changes reach it only through a validated pull request, or as the Auto-update's version commit, validated just before. A newer push to the same branch, or a new commit in the same pull request, cancels the run it makes obsolete. A run started by hand and a push's run on the same branch cancel each other as well, whichever starts later cancelling the other: start one by hand only after the push's run has finished, or that run is cancelled and its Validation summary turns red.
+
+One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green.
 
 A pull request from a fork runs the same checks with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
 
