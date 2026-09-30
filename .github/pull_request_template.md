@@ -1,4 +1,4 @@
-<!-- Thanks for contributing! Please read CONTRIBUTING.md first. -->
+<!-- Thanks for contributing! Please read CONTRIBUTING.md first. Pull requests go to `dev`. -->
 
 ## Description
 
@@ -40,5 +40,5 @@ A log excerpt from the app's startup is ideal.
 
 <!--
 Do NOT change `version:` in config.yaml or CHANGELOG.md – the Auto-update workflow maintains both.
-Every pull request runs the Validate workflow; it can only be merged once "Validation result" is green.
+Every pull request runs the Validate workflow; it is merged only once "Validation result" is green.
 -->
