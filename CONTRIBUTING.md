@@ -181,6 +181,27 @@ Please write commit messages as [Conventional Commits](https://www.conventionalc
 - Mark a change that breaks an installation with `!` after the type, as in `feat!: rename an option` — users have to act after such an update.
 - `chore: update BamBuddy … -> …` and `chore: pin BamBuddy Daily …` are the Auto-update workflow's own commits; don't write those by hand.
 
+## Releases
+
+This repository has no releases of its own: its versions are BamBuddy's, and the **Auto-update** workflow publishes them. Nobody sets `version:` in `config.yaml` or edits `CHANGELOG.md` by hand.
+
+| | Stable (`bambuddy/`) | Daily (`bambuddy-daily/`) |
+|---|---|---|
+| Follows | BamBuddy's latest release | BamBuddy's daily build, pinned by digest in `upstream.digest` |
+| Version | BamBuddy's release tag, e.g. `1.2.5.6` | BamBuddy's latest pre-release tag, e.g. `1.2.6b1-daily.20260929` |
+| `CHANGELOG.md` | BamBuddy's release notes, newest on top, the last 15 versions | the notes of the current build only |
+| Image | `ghcr.io/spegeli/homeassistant-app-bambuddy` | `ghcr.io/spegeli/homeassistant-app-bambuddy-daily` |
+
+The Auto-update workflow runs every hour — GitHub starts scheduled runs late at times — and by hand, on `main` only. For each channel with a new BamBuddy version it
+
+1. validates the new version: lint and the container tests on amd64 and arm64;
+2. builds the image on each architecture and publishes it to GHCR as `<version>`, `<version>-amd64`, `<version>-arm64` and `latest`;
+3. sets the version in `config.yaml`, writes the release notes to `CHANGELOG.md` — the Daily also `upstream.digest` — and pushes that commit to `main` with the deploy key, the one direct push `main`'s ruleset lets through.
+
+Home Assistant then offers the update. If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>" and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
+
+**Build image** (Actions → Build image, on `main` only) rebuilds and republishes the current version's image after a change to a Dockerfile or `rootfs/`. Home Assistant offers an update only for a new version number, so existing installations get such a change with the next BamBuddy version; new installations get it at once.
+
 ## Workflows in your fork
 
 GitHub keeps Actions switched off in a fork until you enable them on its **Actions** tab.
@@ -202,7 +223,7 @@ Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPD
 
 - A change on `dev` reaches `main` with the next pull request from `dev`.
 - Changes to `config.yaml`, translations or `DOCS.md` take effect when Home Assistant reloads the repository.
-- Changes to the image (Dockerfile, `rootfs/`) need a new image build: the Daily image gets one with its next automatic update, the Stable image with the next BamBuddy release, or earlier when the maintainer builds it by hand. Home Assistant offers an update only for a new version number, so installed apps get the change with the next version.
+- Changes to the image reach installations with the next version (see [Releases](#releases)).
 
 ## License
 
