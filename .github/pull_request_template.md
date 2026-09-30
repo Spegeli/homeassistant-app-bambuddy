@@ -19,9 +19,12 @@
 
 - [ ] Bug fix
 - [ ] New feature
+- [ ] Improvement (performance)
+- [ ] Security
 - [ ] Documentation
 - [ ] Refactor / code quality
 - [ ] CI / repository
+- [ ] Breaking change — existing installations must act after updating
 
 ## How was this tested?
 
@@ -33,7 +36,7 @@ A log excerpt from the app's startup is ideal.
 ## Checklist
 
 - [ ] Tested on a real Home Assistant instance, if the change affects the running app
-- [ ] `tests/lint.py` passes; for changes to the Dockerfile or `rootfs/` also `tests/image-checks.sh` and `tests/smoke.sh`
+- [ ] `tests/lint.py` passes; for changes to the Dockerfile or `rootfs/` also `tests/image-checks.sh` and `tests/smoke.sh` (see CONTRIBUTING → Testing locally)
 - [ ] New or changed option: `options` + `schema` in `config.yaml`, all `translations/*.yaml` (`en`, `de`, `fr`, `es`, `it`), the options section in `DOCS.md`, a scenario in `tests/scenarios/` with assertions in `tests/smoke.sh` – in both channels, in the order of `config.yaml`
 - [ ] No token or other secret ends up in the log (the run script logs `Setting <VAR>: <value>`)
 - [ ] `DOCS.md` updated if user-facing behavior changed

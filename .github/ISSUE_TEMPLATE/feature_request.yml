@@ -1,44 +1,70 @@
 name: Feature request
-description: Suggest an improvement to the Home Assistant app packaging.
-title: "[Feature]: "
+description: Suggest a new feature or improvement for the app
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        **This repository only packages BamBuddy as a Home Assistant app.**
-        Feature requests for BamBuddy itself (new printer features, UI, integrations, ...) belong in the upstream project:
-        https://github.com/maziggy/bambuddy/issues
+        Have an idea to improve this app? Fill out the form below.
 
-        Good fits here: new app options, Home Assistant integration of the app, installation/update behaviour, documentation of the app.
+        **This repository only packages BamBuddy as a Home Assistant app.** Good fits here: new app options, how the app works with Home Assistant, installation and updates, the app's documentation. Features of BamBuddy itself (printer handling, UI, integrations, ...) belong in the [upstream project](https://github.com/maziggy/bambuddy/issues).
+
   - type: checkboxes
-    id: scope
+    id: preflight
     attributes:
-      label: Scope
+      label: Before you start
       options:
-        - label: This request is about the Home Assistant app packaging, not a feature of BamBuddy itself.
+        - label: I searched [existing issues](https://github.com/Spegeli/homeassistant-app-bambuddy/issues?q=is%3Aissue) and this is not a duplicate.
           required: true
-        - label: I searched the existing issues and this has not been requested yet.
+        - label: This is about the Home Assistant app, not a feature of BamBuddy itself.
           required: true
-  - type: textarea
-    id: problem
+        - label: I read the [Known limitations](https://github.com/Spegeli/homeassistant-app-bambuddy#%EF%B8%8F-known-limitations). If my idea touches one of them, I explain below what has changed or how it could work.
+          required: true
+
+  - type: dropdown
+    id: area
     attributes:
-      label: Problem / use case
-      description: What are you trying to do, and what is missing or inconvenient today?
+      label: Which area does this affect?
+      options:
+        - A new app option
+        - Embedding in Home Assistant (Webpage card, trusted_frame_origins)
+        - Network storage (/share, /media)
+        - Custom CA certificate
+        - Network and ports (host network, virtual printer)
+        - Installation, updates and data
+        - Documentation
+        - Other
     validations:
       required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: What problem does this solve?
+      description: Describe the concrete situation where the app falls short today.
+    validations:
+      required: true
+
   - type: textarea
     id: solution
     attributes:
       label: Proposed solution
-      description: How would you like the app to behave?
+      description: What should the app do instead? Name the option or setting you have in mind.
     validations:
       required: true
+
+  - type: textarea
+    id: bambuddy_reference
+    attributes:
+      label: BamBuddy reference
+      description: If this depends on a BamBuddy setting or environment variable, link where BamBuddy documents it — its [wiki](https://wiki.bambuddy.cool) or its code.
+    validations:
+      required: false
+
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional context
+      description: Settings inside BamBuddy, Home Assistant automations or other workarounds you already tried.
+    validations:
+      required: false

@@ -15,20 +15,22 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 - **Report a security vulnerability** — privately, never as a public issue: see the [security policy](SECURITY.md).
 - **Report a bug** — [open a bug report](https://github.com/Spegeli/homeassistant-app-bambuddy/issues/new?template=bug_report.yml) with the channel (Stable / Daily), the app and Home Assistant versions, the architecture and the **full app log** from the startup on.
 - **Suggest a feature** — [open a feature request](https://github.com/Spegeli/homeassistant-app-bambuddy/issues/new?template=feature_request.yml).
-- **Improve translations** — the app options are translated into English, German, French, Spanish and Italian (`translations/*.yaml` in both channels); corrections by native speakers are welcome.
+- **Improve translations** — corrections and new languages are welcome, see [Translations](#translations).
 - **Submit a change** — see [Pull requests](#pull-requests).
 
 ## Branches
 
 - **`main`** is what Home Assistant installs: it reads `config.yaml`, the translations and `DOCS.md` from there. It changes only through the pull request from `dev`, which merges only with a green **Validation result**, and through the version commits of the Auto-update workflow.
 - **`dev`** is where changes come together before they go live, contributions included.
+- **Topic branches** start from `dev` and go back into it.
 
 ## Pull requests
 
 1. Fork the repository and branch from `dev`.
 2. Keep the change focused — one topic per pull request.
-3. Open the pull request against **`dev`** and fill in the template.
-4. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green.
+3. Please write the commit messages as [Conventional Commits](https://www.conventionalcommits.org) — see [Commit messages](#commit-messages).
+4. Open the pull request against **`dev`** and fill in the template.
+5. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green. A first-time contributor's run waits for the maintainer's approval, so run the tests yourself first (see [Testing locally](#testing-locally)): you get the answer sooner.
 
 **Channels.** There are two channels: `bambuddy/` (Stable) and `bambuddy-daily/` (Daily). By default, apply a change to **both** so they stay consistent. Exception: if the change depends on an upstream feature that so far only exists in BamBuddy's daily build, change `bambuddy-daily/` only. Stable follows once that feature ships in a stable BamBuddy release. The pull request template asks which channels you changed.
 
@@ -36,7 +38,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **New or changed options** need all of these, in both channels and in the same order as in `config.yaml`:
 - `options` and `schema` in `config.yaml`
-- every file in `translations/` (`en`, `de`, `fr`, `es`, `it`)
+- every file in `translations/` (see [Translations](#translations))
 - the options section in `DOCS.md`
 - a scenario in `tests/scenarios/` and its assertions in `tests/smoke.sh`
 
@@ -44,11 +46,21 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **Don't add** system packages the upstream image already ships (e.g. `ffmpeg`, `curl`, `ca-certificates`, OpenCV).
 
-**Commit messages:** please write them as [Conventional Commits](https://www.conventionalcommits.org) — `fix:`, `feat:`, `docs:`, `test:`, `ci:` or `chore:`, e.g. `fix: keep the custom CA when its file name has spaces`.
+## Development setup
 
-## Testing locally
+The app is a container image built on top of BamBuddy's: a change to a Dockerfile or to `rootfs/` takes effect only in a new image, while Home Assistant reads `config.yaml`, the translations and `DOCS.md` straight from the repository.
 
-You need Docker with Buildx, and Python 3 with PyYAML for the static checks. The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
+1. Fork and clone the repository, and branch from `dev`.
+2. Install Docker with Buildx, and Python 3 with PyYAML for the static checks.
+3. Test locally as below. You need no Home Assistant for it: `tests/smoke.sh` runs the image against a mock Supervisor.
+
+Home Assistant installs this app as a ready-made image from GHCR (`image:` in `config.yaml`). To try a change to the image on a real Home Assistant, publish your own image first — see [Workflows in your fork](#workflows-in-your-fork).
+
+To see what BamBuddy is doing, turn on **Debug** in the app's **Configuration** tab. The **Log** tab shows the output; BamBuddy's own log files are in the app's configuration folder (`addon_configs` → `[slug]_bambuddy` or `[slug]_bambuddy_daily` → `logs`).
+
+### Testing locally
+
+The full recipe is in [tests/README.md](tests/README.md); in short, for the Stable image:
 
 ```bash
 python3 tests/lint.py
@@ -70,7 +82,40 @@ docker buildx build --load -t bambuddy:test \
   bambuddy-daily/
 ```
 
-On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
+On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`. To repeat a single scenario: `bash tests/smoke.sh bambuddy:test all-on`.
+
+On Windows, run the scripts from Git Bash. Don't export `MSYS_NO_PATHCONV` globally: `smoke.sh` sets it for Docker only, and exported it breaks the `curl` the script uses. If a scenario fails only now and then, repeat it alone.
+
+If you change a workflow, run [actionlint](https://github.com/rhysd/actionlint) as well — CI does not:
+
+```bash
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest
+```
+
+On Windows in Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -w "$PWD"):/repo" -w /repo rhysd/actionlint:latest`.
+
+CI runs the same checks as above, except actionlint (see [Continuous integration](#continuous-integration)).
+
+## Project layout
+
+The two channels have the same structure; paths below `bambuddy/` apply to `bambuddy-daily/` as well.
+
+| Path | Responsibility |
+|---|---|
+| `bambuddy/config.yaml` | The app for Home Assistant: image, permissions, options and their schema, watchdog |
+| `bambuddy/Dockerfile` | The image: BamBuddy's upstream image plus s6-overlay and bashio, labels, health check |
+| `bambuddy/rootfs/etc/services.d/bambuddy/run` | Starts BamBuddy: sets up `/config`, turns the app options into environment variables, ends with `exec uvicorn` |
+| `bambuddy/rootfs/etc/services.d/bambuddy/finish` | Runs when BamBuddy ends: logs why and stops the app |
+| `bambuddy/translations/` | Names and descriptions of the options in the app's **Configuration** tab (`en`, `de`, `fr`, `es`, `it`) |
+| `bambuddy/DOCS.md`, `bambuddy/README.md` | The app's **Documentation** tab and its card in the app store |
+| `bambuddy/CHANGELOG.md` | BamBuddy's release notes, written by the Auto-update workflow |
+| `bambuddy-daily/upstream.digest` | The BamBuddy daily image the Daily channel is pinned to, written by the Auto-update workflow |
+| `.github/workflows/` | Validate, Auto-update and Build image, and their shared parts `_validate.yml` and `_build.yml` |
+| `.github/scripts/resolve-build-args.sh` | What to build — version, digest and image description — for both building and validating |
+| `tests/` | `lint.py`, `image-checks.sh`, `smoke.sh` with its Supervisor mock and scenarios (see [tests/README.md](tests/README.md)) |
+| `repository.json` | The repository's name and maintainer for Home Assistant's app store |
+
+Home Assistant pulls the image named in `config.yaml` from GHCR. At start, s6-overlay runs `run`, which reads the options through the Supervisor API (bashio) and starts BamBuddy; when BamBuddy ends, `finish` stops the app, and Home Assistant's watchdog decides whether it starts again. The Auto-update workflow watches BamBuddy's releases and daily builds, validates and publishes each new image, and then sets the new version in `config.yaml`.
 
 ## Things that are easy to get wrong
 
@@ -82,6 +127,19 @@ On ARM machines (e.g. Apple Silicon, Raspberry Pi) use `BUILD_ARCH=aarch64`.
 - **A new file under `rootfs/` needs its own `COPY` line** in both Dockerfiles: they copy only `rootfs/etc/services.d/bambuddy`.
 - **The build warning `InvalidDefaultArgInFrom` is expected.** `BAMBUDDY_VERSION` (and the Daily's `BAMBUDDY_DIGEST`) deliberately have no default, so an image never drifts from `config.yaml`. Don't add one.
 - **uvicorn listens on `0.0.0.0`, not `::`.** `::` fails to start on hosts with IPv6 switched off.
+
+## Translations
+
+The app options are translated into English (`en`), German (`de`), French (`fr`), Spanish (`es`) and Italian (`it`). Home Assistant shows them in the app's **Configuration** tab, in each user's profile language. Corrections by native speakers are welcome.
+
+The files are `translations/<language>.yaml`, the same in both channels. Each lists every option under `configuration:`, in the order of `options:` in `config.yaml`, with a `name` and a `description`; `tests/lint.py` checks that.
+
+- **Changing a text means changing it in every file:** all five languages, in both channels. If you cannot write one of the languages, say so in the pull request rather than leaving English in its file.
+- Keep the product name **BamBuddy**, paths such as `/share` and file names as they are.
+- Name Home Assistant's menus as Home Assistant labels them in that language — for example "Settings -> System -> Storage" in English, "Einstellungen -> System -> Speicher" in German.
+- Write the files as UTF-8; German uses real umlauts.
+
+To add a language, copy `translations/en.yaml` to `translations/<code>.yaml` in both channels, translate the values, and add the code to `LANGUAGES` in `tests/lint.py`.
 
 ## Continuous integration
 
@@ -99,17 +157,58 @@ When Validate runs:
 - **A pull request to `dev` or `main`** — everything.
 - **By hand** — Actions → Validate → Run workflow, with a choice of channel and of the container tests.
 
-One last check sums up each run. A pull request to `main` calls it **Validation result**, the check `main` requires. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green.
+Validate does not run on `main` itself: changes reach it only through a validated pull request, or as the Auto-update's version commit, validated just before. A newer push to the same branch, or a new commit in the same pull request, cancels the run it makes obsolete. A run started by hand and a push's run on the same branch cancel each other as well, whichever starts later cancelling the other: start one by hand only after the push's run has finished, or that run is cancelled and its Validation summary turns red.
 
-A pull request from a fork runs the same checks with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
+One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires: a pull request to `main` merges only when it is green. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green. A run by hand never counts for a pull request anyway, so leaving a channel or the container tests out cannot stand in for the required check.
+
+A pull request from a fork, to `dev` or to `main`, runs the same checks, with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
+
+## Commit messages
+
+Please write commit messages as [Conventional Commits](https://www.conventionalcommits.org): `<type>: <description>`, optionally with a scope, as in `fix(run): …`. Nothing is generated from them here, but they keep the history readable and show at a glance what a pull request touches.
+
+| Type | For |
+|---|---|
+| `feat` | something new for the people who run the app, such as a new option |
+| `fix` | a bug in the app: the run script, a Dockerfile, `config.yaml` |
+| `docs` | what users read: `DOCS.md`, the READMEs, the option texts in `translations/` |
+| `refactor` | a restructuring that changes no behavior |
+| `test` | the tests alone |
+| `ci` | the workflows and their scripts |
+| `chore` | everything else in the repository: this file, the issue and pull request templates, the other community files |
+
+- Write the description in the imperative and lower case, for the people who run the app: `fix: keep the custom CA when its file name has spaces`.
+- Mark a change that breaks an installation with `!` after the type, as in `feat!: rename an option` — users have to act after such an update.
+- `chore: update BamBuddy … -> …` and `chore: pin BamBuddy Daily …` are the Auto-update workflow's own commits; don't write those by hand.
+
+## Releases
+
+This repository has no releases of its own: its versions are BamBuddy's, and the **Auto-update** workflow publishes them. Nobody sets `version:` in `config.yaml` or edits `CHANGELOG.md` by hand.
+
+| | Stable (`bambuddy/`) | Daily (`bambuddy-daily/`) |
+|---|---|---|
+| Follows | BamBuddy's latest release | BamBuddy's daily build, pinned by digest in `upstream.digest` |
+| Version | BamBuddy's release tag, e.g. `1.2.5.6` | BamBuddy's latest pre-release tag, e.g. `1.2.6b1-daily.20260929` |
+| `CHANGELOG.md` | BamBuddy's release notes, newest on top, the last 15 versions | the notes of the current build only |
+| Image | `ghcr.io/spegeli/homeassistant-app-bambuddy` | `ghcr.io/spegeli/homeassistant-app-bambuddy-daily` |
+
+The Auto-update workflow runs every hour — GitHub starts scheduled runs late at times — and by hand, on `main` only. For each channel with a new BamBuddy version it
+
+1. validates the new version: lint and the container tests on amd64 and arm64;
+2. builds the image on each architecture and publishes it to GHCR as `<version>`, `<version>-amd64`, `<version>-arm64` and `latest`;
+3. sets the version in `config.yaml`, writes the release notes to `CHANGELOG.md` — the Daily also `upstream.digest` — and pushes that commit to `main` with the deploy key, the one direct push `main`'s ruleset lets through.
+
+Home Assistant then offers the update. If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>" and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
+
+**Build image** (Actions → Build image, on `main` only) rebuilds and republishes the current version's image after a change to a Dockerfile or `rootfs/`. Home Assistant offers an update only for a new version number, so existing installations get such a change with the next BamBuddy version; new installations get it at once.
 
 ## Workflows in your fork
 
 GitHub keeps Actions switched off in a fork until you enable them on its **Actions** tab.
 
-**Validate** works as it is – it needs no secrets. In your fork it validates every push to a branch other than `main` – fully on `dev`, lint only elsewhere – and runs the full validation on pull requests to your fork's `dev` or `main`. Your pull request here is validated in this repository anyway.
+**Validate** works as it is: it needs no secrets and runs in your fork just as described under [Continuous integration](#continuous-integration). Your pull request here is validated in this repository anyway.
 
-**Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead, change:
+**Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead – for example to try a change on a real Home Assistant – change:
 - `image:` in `.github/workflows/auto-update.yml` and `.github/workflows/build.yml` (two per file)
 - `image:` in both `config.yaml`, or Home Assistant keeps pulling this repository's images
 - the expected image name in `tests/lint.py`, or the validation fails
@@ -124,7 +223,7 @@ Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPD
 
 - A change on `dev` reaches `main` with the next pull request from `dev`.
 - Changes to `config.yaml`, translations or `DOCS.md` take effect when Home Assistant reloads the repository.
-- Changes to the image (Dockerfile, `rootfs/`) need a new image build: the Daily image gets one with its next automatic update, the Stable image with the next BamBuddy release, or earlier when the maintainer builds it by hand. Home Assistant offers an update only for a new version number, so installed apps get the change with the next version.
+- Changes to the image reach installations with the next version (see [Releases](#releases)).
 
 ## License
 
