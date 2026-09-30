@@ -206,9 +206,9 @@ Home Assistant then offers the update. If any step fails, the workflow opens an 
 
 GitHub keeps Actions switched off in a fork until you enable them on its **Actions** tab.
 
-**Validate** works as it is – it needs no secrets. In your fork it validates every push to a branch other than `main` – fully on `dev`, lint only elsewhere – and runs the full validation on pull requests to your fork's `dev` or `main`. Your pull request here is validated in this repository anyway.
+**Validate** works as it is: it needs no secrets and runs in your fork just as described under [Continuous integration](#continuous-integration). Your pull request here is validated in this repository anyway.
 
-**Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead, change:
+**Auto-update** and **Build image** publish to this repository's packages on GHCR, so in a fork they fail when pushing the image. If you don't want your own images, disable **Auto-update** on your fork's Actions tab – otherwise it fails every hour as soon as a new BamBuddy version comes out. To publish your own images instead – for example to try a change on a real Home Assistant – change:
 - `image:` in `.github/workflows/auto-update.yml` and `.github/workflows/build.yml` (two per file)
 - `image:` in both `config.yaml`, or Home Assistant keeps pulling this repository's images
 - the expected image name in `tests/lint.py`, or the validation fails
