@@ -86,9 +86,9 @@ and arm64, each natively, and run both scripts). It is called by:
 - `validate.yml` ("Validate"):
   - on a push to any branch except `main`: lint only, a quick check while
     working - small commits do not each trigger a container build
-  - on a pull request to `main`: everything. Its "Validation result" check is
-    required by `main`'s ruleset, so nothing merges unvalidated, a
-    contributor's pull request included
+  - on a pull request to `dev` or `main`: everything. Its "Validation result"
+    check is required by `main`'s ruleset, so nothing merges unvalidated;
+    contributions go to `dev` and are merged there only when it is green
   - manually (Actions -> Validate -> Run workflow), with a channel choice and a
     switch for the container stage
 
