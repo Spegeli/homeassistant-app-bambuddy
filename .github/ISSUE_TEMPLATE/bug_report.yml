@@ -1,27 +1,46 @@
 name: Bug report
-description: Report a problem with the Home Assistant app (installation, startup, configuration, updates).
-title: "[Bug]: "
+description: Report a bug or unexpected behavior of the app
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a problem!
+        Thanks for taking the time to report a bug. The more precise the details and logs you give, the faster this gets fixed.
 
-        **This repository only packages BamBuddy as a Home Assistant app.**
-        Bugs in BamBuddy itself (printer handling, UI, archive, camera, virtual printer behaviour, ...) belong in the upstream project:
-        https://github.com/maziggy/bambuddy/issues
+        **This repository only packages BamBuddy as a Home Assistant app.** Bugs in BamBuddy itself (printer handling, UI, archive, camera, virtual printer behaviour, ...) belong in the [upstream project](https://github.com/maziggy/bambuddy/issues). Unsure? Check whether the same problem also happens with the plain BamBuddy Docker image.
 
-        If you are unsure, check whether the same problem also happens with the plain BamBuddy Docker image.
   - type: checkboxes
-    id: scope
+    id: preflight
     attributes:
-      label: Scope
+      label: Before you start
       options:
-        - label: This is a problem with the Home Assistant app packaging (install, start, update, options, data persistence), not a bug in BamBuddy itself.
+        - label: I read the app's **Documentation** tab and the [Known limitations](https://github.com/Spegeli/homeassistant-app-bambuddy#%EF%B8%8F-known-limitations).
           required: true
-        - label: I searched the existing issues and this has not been reported yet.
+        - label: I searched [existing issues](https://github.com/Spegeli/homeassistant-app-bambuddy/issues?q=is%3Aissue) and this is not a duplicate.
           required: true
+        - label: I am running the latest version of my channel — Home Assistant offers no update for the app.
+          required: true
+        - label: This is a problem with the Home Assistant app (installation, start, updates, options, data), not a bug in BamBuddy itself.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Installation or update of the app
+        - Start or crash (the app does not start or stops)
+        - App options (Configuration tab)
+        - Embedding in Home Assistant (Webpage card, trusted_frame_origins)
+        - Network storage (/share, /media)
+        - Custom CA certificate
+        - Network and ports (host network, virtual printer)
+        - Data (addon_configs, backups, uninstall)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
   - type: dropdown
     id: channel
     attributes:
@@ -31,22 +50,25 @@ body:
         - Daily
     validations:
       required: true
+
   - type: input
     id: app_version
     attributes:
       label: App version
-      description: Shown on the app page in Home Assistant.
-      placeholder: "1.2.5.5"
+      description: Settings → Apps → BamBuddy, shown on the app's page.
+      placeholder: e.g. 1.2.5.6 or 1.2.6b1-daily.20260929
     validations:
       required: true
+
   - type: input
     id: ha_version
     attributes:
       label: Home Assistant version
-      description: Settings → About (Core, Supervisor and OS versions).
-      placeholder: "Core 2026.9.2 / Supervisor 2026.09.1 / OS 18.2"
+      description: Settings → About — Core, Supervisor and OS versions.
+      placeholder: e.g. Core 2026.9.2 / Supervisor 2026.09.1 / OS 18.2
     validations:
       required: true
+
   - type: dropdown
     id: install_type
     attributes:
@@ -56,6 +78,7 @@ body:
         - Home Assistant Supervised
     validations:
       required: true
+
   - type: dropdown
     id: arch
     attributes:
@@ -65,43 +88,64 @@ body:
         - amd64 (x86-64, e.g. NUC, VM)
     validations:
       required: true
+
   - type: textarea
     id: description
     attributes:
       label: What happened?
-      description: Describe the problem.
+      description: Describe the actual behavior, with the exact error message if there is one.
     validations:
       required: true
+
   - type: textarea
     id: expected
     attributes:
-      label: What did you expect to happen?
+      label: What did you expect instead?
     validations:
       required: true
+
   - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. ...
-        2. ...
-        3. ...
+        1. Go to...
+        2. Click on...
+        3. See error
+    validations:
+      required: false
+
   - type: textarea
     id: options
     attributes:
       label: App configuration
-      description: Your app options (Configuration tab → ⋮ → Edit in YAML). Remove anything private.
+      description: Your app options — Configuration tab → ⋮ → Edit in YAML. Remove anything private.
       render: yaml
+    validations:
+      required: false
+
   - type: textarea
     id: logs
     attributes:
       label: App log
-      description: Log tab of the app. Please include the full startup, not only the last line.
-      render: shell
+      description: |
+        The app's **Log** tab. Include the full startup, not only the last line.
+        For more detail, turn on **Debug** in the app's **Configuration** tab, restart the app and reproduce the problem.
+      render: text
     validations:
       required: true
+
   - type: textarea
     id: additional
     attributes:
       label: Additional context
-      description: Anything else that might help (screenshots, Supervisor log lines, what changed recently, ...).
+      description: Anything else that might help — screenshots, Supervisor log lines, what changed recently.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **Never post a secret** — a printer's access code, a Home Assistant token or a password. Check screenshots and logs before you post them.
+        > If you posted one by accident, change it right away.
