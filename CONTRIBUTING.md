@@ -159,9 +159,9 @@ When Validate runs:
 
 Validate does not run on `main` itself: changes reach it only through a validated pull request, or as the Auto-update's version commit, validated just before. A newer push to the same branch, or a new commit in the same pull request, cancels the run it makes obsolete. A run started by hand and a push's run on the same branch cancel each other as well, whichever starts later cancelling the other: start one by hand only after the push's run has finished, or that run is cancelled and its Validation summary turns red.
 
-One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green.
+One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires: a pull request to `main` merges only when it is green. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green. A run by hand never counts for a pull request anyway, so leaving a channel or the container tests out cannot stand in for the required check.
 
-A pull request from a fork runs the same checks with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
+A pull request from a fork, to `dev` or to `main`, runs the same checks, with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
 
 ## Workflows in your fork
 
