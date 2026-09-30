@@ -1,16 +1,26 @@
 name: Validate
 
-# Checks a change without publishing anything: static checks, and where it
-# matters the image built and booted on amd64 and arm64 (never pushed).
-#   push to any branch but main - lint only, a quick check while working
-#   pull request to dev or main - everything (read-only token, no secrets).
-#                                 Only a pull request to main reports
-#                                 "Validation result", the check main's
-#                                 ruleset requires; contributions go to dev
-#                                 and are merged there once their run is green
-#   manual                      - channel and container tests as chosen
+# Checks a change without publishing anything: the static checks (lint.py and
+# shell syntax) and the container tests - the image built natively on amd64
+# and arm64, never pushed, then image-checks.sh and smoke.sh (all in
+# _validate.yml).
+#   push to any branch but main - lint only, a quick check while working;
+#                                 summed up as "Validation summary"
+#   pull request to main        - everything, summed up as "Validation
+#                                 result": the check main's ruleset requires,
+#                                 so nothing merges unvalidated
+#   pull request to dev         - everything, so a contribution is checked
+#                                 before it merges; summed up as "Validation
+#                                 summary", so that it never answers for
+#                                 main's check on the same commit
+#   either pull request runs a contributor's code from a fork with a
+#   read-only token and no secrets: pull_request, never pull_request_target
+#   manual                      - on any branch; channel and container tests
+#                                 as chosen; summed up as "Validation summary"
 # main itself needs no run: changes only arrive through a validated pull
-# request, or as the auto-update's version commit, which it validated first.
+# request, or as the auto-update's version commit, validated just before.
+# No schedule: GitHub disables a workflow that has one after 60 days without
+# repository activity, and then it runs on no push either.
 
 run-name: >-
   ${{ github.event_name == 'pull_request'
