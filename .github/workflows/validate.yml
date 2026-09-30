@@ -3,11 +3,11 @@ name: Validate
 # Checks a change without publishing anything: static checks, and where it
 # matters the image built and booted on amd64 and arm64 (never pushed).
 #   push to any branch but main - lint only, a quick check while working
-#   pull request to dev or main - everything. "Validation result" is the check
-#                                 main's ruleset requires, so nothing merges
-#                                 unvalidated; contributions go to dev and are
-#                                 merged there only when it is green as well
-#                                 (read-only token, no secrets)
+#   pull request to dev or main - everything (read-only token, no secrets).
+#                                 Only a pull request to main reports
+#                                 "Validation result", the check main's
+#                                 ruleset requires; contributions go to dev
+#                                 and are merged there once their run is green
 #   manual                      - channel and container tests as chosen
 # main itself needs no run: changes only arrive through a validated pull
 # request, or as the auto-update's version commit, which it validated first.
@@ -63,13 +63,14 @@ jobs:
       smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
 
   # The one check main's ruleset requires; a fixed name stays valid when the
-  # jobs above change. Only a pull request run may report under that name: the
-  # ruleset matches checks by name on the commit, so the lint-only run of a
-  # push to the same commit would satisfy it before the container tests end.
+  # jobs above change. Only a pull request to main may report under that name:
+  # the ruleset matches checks by name on the commit, so a push's lint-only run
+  # or a pull request to dev on the same commit would otherwise satisfy it for
+  # a pull request to main that was never validated against main.
   # always(), not !cancelled(): a skipped job counts as passed for a required
   # check, so a cancelled validation must still run this job and fail it.
   result:
-    name: ${{ github.event_name == 'pull_request' && 'Validation result' || 'Validation summary' }}
+    name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'Validation result' || 'Validation summary' }}
     needs: [stable, daily]
     if: always()
     runs-on: ubuntu-24.04

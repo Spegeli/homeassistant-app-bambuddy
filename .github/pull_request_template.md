@@ -40,5 +40,5 @@ A log excerpt from the app's startup is ideal.
 
 <!--
 Do NOT change `version:` in config.yaml or CHANGELOG.md – the Auto-update workflow maintains both.
-Every pull request runs the Validate workflow; it is merged only once "Validation result" is green.
+Every pull request runs the Validate workflow; it is merged only once its validation is green.
 -->

@@ -86,15 +86,16 @@ and arm64, each natively, and run both scripts). It is called by:
 - `validate.yml` ("Validate"):
   - on a push to any branch except `main`: lint only, a quick check while
     working - small commits do not each trigger a container build
-  - on a pull request to `dev` or `main`: everything. Its "Validation result"
-    check is required by `main`'s ruleset, so nothing merges unvalidated;
-    contributions go to `dev` and are merged there only when it is green
+  - on a pull request to `dev` or `main`: everything. A pull request to `main`
+    reports "Validation result", the check `main`'s ruleset requires, so
+    nothing merges unvalidated; contributions go to `dev` and are merged
+    there once their run is green
   - manually (Actions -> Validate -> Run workflow), with a channel choice and a
     switch for the container stage
 
-  Push and manual runs report as "Validation summary" instead: the ruleset
-  matches checks by name on the commit, and a lint-only run must not stand in
-  for the pull request's full validation.
+  All other runs - a pull request to `dev`, a push, a manual run - report as
+  "Validation summary": the ruleset matches checks by name on the commit, so
+  only the run that validates the merge into `main` may stand for it.
 - `auto-update.yml` - between `check` and `build`, so a failing validation
   means nothing is pushed to GHCR and `config.yaml` is never bumped
 - `build.yml` - before the manual build; untick `run_tests` to skip

@@ -28,7 +28,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 1. Fork the repository and branch from `dev`.
 2. Keep the change focused — one topic per pull request.
 3. Open the pull request against **`dev`** and fill in the template.
-4. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once the **Validation result** is green.
+4. Validate checks it automatically (see [Continuous integration](#continuous-integration)); it is merged once its **Validation summary** is green.
 
 **Channels.** There are two channels: `bambuddy/` (Stable) and `bambuddy-daily/` (Daily). By default, apply a change to **both** so they stay consistent. Exception: if the change depends on an upstream feature that so far only exists in BamBuddy's daily build, change `bambuddy-daily/` only. Stable follows once that feature ships in a stable BamBuddy release. The pull request template asks which channels you changed.
 
@@ -98,7 +98,7 @@ When Validate runs:
 - **A pull request to `dev` or `main`** — everything.
 - **By hand** — Actions → Validate → Run workflow, with a choice of channel and of the container tests.
 
-One last check sums up each run. A pull request's run calls it **Validation result**: `main` requires it, and a pull request to `dev` is merged only when it is green as well. Push and manual runs call it **Validation summary**, so they can never stand in for a pull request's own run.
+One last check sums up each run. A pull request to `main` calls it **Validation result**, the check `main` requires. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green.
 
 A pull request from a fork runs the same checks with a read-only token and no secrets: Validate uses `pull_request`, never `pull_request_target`. A first-time contributor's run waits for the maintainer's approval.
 
