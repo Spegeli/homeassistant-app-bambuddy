@@ -2,22 +2,22 @@
   <img src="https://github.com/Spegeli/homeassistant-app-bambuddy/blob/main/logo.png?raw=true" alt="BamBuddy Logo" width="300">
 </p>
 
-# 🚀 BamBuddy – Home Assistant App
+<h1 align="center">BamBuddy – Home Assistant App</h1>
 
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/Spegeli/homeassistant-app-bambuddy"><img src="https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg" alt="Add Repository to Home Assistant"></a>
+</p>
+<p align="center">
+  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy/config.yaml&query=$.version&label=stable&color=blue">
+  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-daily/config.yaml&query=$.version&label=daily&color=purple">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2B%20AGPL--3.0-yellow" alt="License: MIT + AGPL-3.0"></a>
+</p>
 <p align="center">
   <a href="https://github.com/maziggy/bambuddy">BamBuddy</a>, delivered as a first-class Home Assistant App for easy installation and updates.
 </p>
 <p align="center">
   <strong>Your printers. No cloud. Your rules.</strong><br>
   Self-hosted command center for Bambu Lab &mdash; from one A1 to an entire print farm.
-</p>
-<p align="center">
-  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy/config.yaml&query=$.version&label=stable&color=blue">
-  <img src="https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/Spegeli/homeassistant-app-bambuddy/main/bambuddy-daily/config.yaml&query=$.version&label=daily&color=purple">
-</p>
-<p align="center">
-  <img src="https://img.shields.io/badge/aarch64-yes-green.svg">
-  <img src="https://img.shields.io/badge/amd64-yes-green.svg">
 </p>
 
 ---
