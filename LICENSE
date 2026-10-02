@@ -24,7 +24,7 @@ SOFTWARE.
 
 Third-party software / NOTICE
 
-The MIT license above applies ONLY to the Home Assistant add-on packaging in
+The MIT license above applies ONLY to the Home Assistant app packaging in
 this repository (Dockerfiles, config.yaml, s6/bashio run scripts, GitHub
 Actions workflows, documentation and translations).
 
