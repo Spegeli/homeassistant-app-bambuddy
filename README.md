@@ -24,7 +24,8 @@
 
 ## 📋 Requirements
 
-- Home Assistant OS or Supervised installation (Supervisor required)
+- Home Assistant OS – apps need the Supervisor, which Home Assistant Container does not have
+- Supervised installations still work, but Home Assistant ended support for them with 2025.12
 - Supported architecture: aarch64 or amd64
 
 ---
