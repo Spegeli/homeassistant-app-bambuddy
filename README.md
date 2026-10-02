@@ -97,12 +97,19 @@ For a full list of affected ports and details, see the **Documentation** tab of 
 
 ---
 
-## ℹ️ Disclaimer
- 
-This is **not** an official release by the BamBuddy developer. This project simply packages [BamBuddy](https://github.com/maziggy/bambuddy) as a native Home Assistant App for easy installation and updates.
- 
-I am not affiliated with or the developer of BamBuddy itself — therefore I am unable to provide support for BamBuddy-related issues, bugs, or feature requests. For anything related to BamBuddy, please refer to the original project:
- 
-👉 **[github.com/maziggy/bambuddy](https://github.com/maziggy/bambuddy)**
- 
-Support provided here is limited to the **Home Assistant App packaging and its installation** only.
+## ⚖️ Disclaimer
+
+- **Not an official BamBuddy release.** This app is an independent community project that packages [BamBuddy](https://github.com/maziggy/bambuddy) for Home Assistant. It is not affiliated with BamBuddy's developer or with Bambu Lab.
+- **Support.** Help here covers the app packaging and its installation only — report those problems in this repository's [issue tracker](https://github.com/Spegeli/homeassistant-app-bambuddy/issues). Bugs and feature requests for BamBuddy itself go to the [BamBuddy project](https://github.com/maziggy/bambuddy/issues).
+- **Trademarks.** Bambu Lab, BamBuddy, their logos and other product names belong to their respective owners. They appear here only to name the software this app packages and the printers it works with.
+- **Use at your own risk.** The app is provided as is, without warranty — the packaging under the MIT License, BamBuddy under the AGPL-3.0 (see [License](#-license)).
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details. It covers the app packaging: the Dockerfiles, `config.yaml`, the run scripts, the workflows, the documentation and the translations.
+
+The container images also contain **BamBuddy**, a separate work by maziggy, redistributed unmodified under the **GNU Affero General Public License v3.0** (AGPL-3.0-only). Its source code is available at [github.com/maziggy/bambuddy](https://github.com/maziggy/bambuddy).
+
+The MIT License does not cover BamBuddy's name and logo (`logo.png` and `icon.png`), which remain their owner's (see [Disclaimer](#%EF%B8%8F-disclaimer)).
