@@ -1,7 +1,8 @@
 name: Auto-update
 
 # Hourly: checks upstream for a new stable release and a new daily build and,
-# per channel, runs check -> validate -> build -> commit. Formerly
+# per channel, runs check -> validate -> build -> commit. A new stable version
+# then gets a reminder issue to review BamBuddy's release notes. Formerly
 # update-versions.yml ("Auto-Update BamBuddy Versions").
 
 # The run list shows whether a run came from the hourly schedule or was
@@ -252,6 +253,78 @@ jobs:
           echo "::error::could not push the version bump after 3 attempts"
           exit 1
 
+  # Every new stable version gets an issue as a reminder to read BamBuddy's
+  # release notes for anything this repository has to follow (environment
+  # variables, the upstream Dockerfile or entrypoint, paths, ports). It opens
+  # once the version is committed, when Home Assistant offers the update, and
+  # lists every release since the previous version, so one the hourly job
+  # skipped is not missed. block-stable does not wait for this job: if it
+  # fails, the version stays published and nothing is blocked.
+  remind-stable:
+    name: Remind STABLE review
+    needs: [check-stable, commit-stable]
+    if: needs.commit-stable.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open a review reminder
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot find the repository itself.
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.check-stable.outputs.version }}
+          PREVIOUS: ${{ needs.check-stable.outputs.current }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          TITLE="New BamBuddy stable release: ${VERSION}"
+          # A re-run must not open the same reminder twice.
+          FOUND=$(gh issue list --state all --search "in:title \"${TITLE}\"" --json title \
+            --jq "[.[] | select(.title == \"${TITLE}\")] | length")
+          if [ "${FOUND}" != "0" ]; then
+            echo "::notice::${TITLE} - the reminder already exists"
+            exit 0
+          fi
+          # Stable releases in the order check-stable picks them (published_at):
+          # everything after the previous version up to this one. If the previous
+          # version is not among the last 100 releases, only this one is listed.
+          RAW=$(curl -s --retry 3 --retry-delay 5 --retry-all-errors \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/maziggy/bambuddy/releases?per_page=100")
+          TAGS=$(echo "$RAW" | jq -r --arg prev "${PREVIOUS}" --arg new "${VERSION}" '
+            [.[] | select(.prerelease == false)
+                 | select(.tag_name | ltrimstr("v") | test("^[0-9]+\\.[0-9]+(\\.[0-9]+)*$"))]
+            | sort_by(.published_at) | map(.tag_name)
+            | (map(ltrimstr("v")) | index($prev)) as $p
+            | (map(ltrimstr("v")) | index($new)) as $n
+            | if $p != null and $n != null and $p < $n then .[($p + 1):($n + 1)][] else empty end' \
+            2>/dev/null || true)
+          if [ -z "${TAGS}" ]; then
+            TAGS="v${VERSION}"
+          fi
+          LINKS=$(while read -r TAG; do
+            echo "- [${TAG}](https://github.com/maziggy/bambuddy/releases/tag/${TAG})"
+          done <<<"${TAGS}")
+          BODY=$(printf '%s\n' \
+            "The Auto-update published BamBuddy ${VERSION} for the Stable channel (previously ${PREVIOUS})." \
+            "" \
+            "Check the release notes for anything this repository has to change to stay compatible: new or renamed environment variables, changes to the upstream Dockerfile, entrypoint or compose file, data or log paths, ports, \`/health\`." \
+            "" \
+            "Release notes since ${PREVIOUS}:" \
+            "${LINKS}" \
+            "" \
+            "Close this issue once checked. It does not block anything.")
+          # Fails when the label exists already, which is fine.
+          gh label create "upstream release" --color "0E8A16" \
+            --description "A new BamBuddy release to review" 2>/dev/null || true
+          URL=$(gh issue create --title "${TITLE}" --label "upstream release" --body "${BODY}")
+          echo "Opened ${URL}"
+          gh issue edit "${URL}" --add-assignee "${OWNER}" \
+            || echo "::warning::Could not assign ${URL} to ${OWNER}"
+
   block-stable:
     name: Block STABLE on failure
     needs: [check-stable, validate-stable, build-stable, commit-stable]
@@ -276,6 +349,7 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate-stable.result }}
           BUILD_RESULT: ${{ needs.build-stable.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           TITLE="Auto-update blocked: stable ${VERSION}"
           if [ "${VALIDATE_RESULT}" = "failure" ]; then
@@ -296,7 +370,12 @@ jobs:
             "${IMPACT} The hourly job skips this version while this issue is open." \
             "" \
             "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+          URL=$(gh issue create --title "${TITLE}" --label "bug" --body "${BODY}")
+          echo "Opened ${URL}"
+          # Assigned only once the issue exists: the open issue is what stops
+          # the hourly retries, so a failed assignment must not prevent it.
+          gh issue edit "${URL}" --add-assignee "${OWNER}" \
+            || echo "::warning::Could not assign ${URL} to ${OWNER}"
 
   # ============================================================
   # DAILY: check -> validate -> build -> commit
@@ -575,6 +654,7 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate-daily.result }}
           BUILD_RESULT: ${{ needs.build-daily.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           TITLE="Auto-update blocked: daily ${VERSION}"
           if [ "${VALIDATE_RESULT}" = "failure" ]; then
@@ -595,4 +675,9 @@ jobs:
             "${IMPACT} The hourly job skips this version while this issue is open." \
             "" \
             "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+          URL=$(gh issue create --title "${TITLE}" --label "bug" --body "${BODY}")
+          echo "Opened ${URL}"
+          # Assigned only once the issue exists: the open issue is what stops
+          # the hourly retries, so a failed assignment must not prevent it.
+          gh issue edit "${URL}" --add-assignee "${OWNER}" \
+            || echo "::warning::Could not assign ${URL} to ${OWNER}"
