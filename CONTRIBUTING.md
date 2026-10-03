@@ -198,7 +198,7 @@ The Auto-update workflow runs every hour — GitHub starts scheduled runs late a
 2. builds the image on each architecture and publishes it to GHCR as `<version>`, `<version>-amd64`, `<version>-arm64` and `latest`;
 3. sets the version in `config.yaml`, writes the release notes to `CHANGELOG.md` — the Daily also `upstream.digest` — and pushes that commit to `main` with the deploy key, the one direct push `main`'s ruleset lets through.
 
-Home Assistant then offers the update. If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>" and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
+Home Assistant then offers the update. If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>", assigned to the repository owner, and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
 
 **Build image** (Actions → Build image, on `main` only) rebuilds and republishes the current version's image after a change to a Dockerfile or `rootfs/`. Home Assistant offers an update only for a new version number, so existing installations get such a change with the next BamBuddy version; new installations get it at once.
 

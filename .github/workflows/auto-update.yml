@@ -276,6 +276,7 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate-stable.result }}
           BUILD_RESULT: ${{ needs.build-stable.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           TITLE="Auto-update blocked: stable ${VERSION}"
           if [ "${VALIDATE_RESULT}" = "failure" ]; then
@@ -296,7 +297,12 @@ jobs:
             "${IMPACT} The hourly job skips this version while this issue is open." \
             "" \
             "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+          URL=$(gh issue create --title "${TITLE}" --label "bug" --body "${BODY}")
+          echo "Opened ${URL}"
+          # Assigned only once the issue exists: the open issue is what stops
+          # the hourly retries, so a failed assignment must not prevent it.
+          gh issue edit "${URL}" --add-assignee "${OWNER}" \
+            || echo "::warning::Could not assign ${URL} to ${OWNER}"
 
   # ============================================================
   # DAILY: check -> validate -> build -> commit
@@ -575,6 +581,7 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate-daily.result }}
           BUILD_RESULT: ${{ needs.build-daily.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           TITLE="Auto-update blocked: daily ${VERSION}"
           if [ "${VALIDATE_RESULT}" = "failure" ]; then
@@ -595,4 +602,9 @@ jobs:
             "${IMPACT} The hourly job skips this version while this issue is open." \
             "" \
             "**Close this issue once the cause is fixed** (right away if it was a one-off hiccup), then the next run picks the version up again.")
-          gh issue create --title "${TITLE}" --label "bug" --body "${BODY}"
+          URL=$(gh issue create --title "${TITLE}" --label "bug" --body "${BODY}")
+          echo "Opened ${URL}"
+          # Assigned only once the issue exists: the open issue is what stops
+          # the hourly retries, so a failed assignment must not prevent it.
+          gh issue edit "${URL}" --add-assignee "${OWNER}" \
+            || echo "::warning::Could not assign ${URL} to ${OWNER}"
