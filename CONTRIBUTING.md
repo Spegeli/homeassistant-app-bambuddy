@@ -198,7 +198,9 @@ The Auto-update workflow runs every hour — GitHub starts scheduled runs late a
 2. builds the image on each architecture and publishes it to GHCR as `<version>`, `<version>-amd64`, `<version>-arm64` and `latest`;
 3. sets the version in `config.yaml`, writes the release notes to `CHANGELOG.md` — the Daily also `upstream.digest` — and pushes that commit to `main` with the deploy key, the one direct push `main`'s ruleset lets through.
 
-Home Assistant then offers the update. If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>", assigned to the repository owner, and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
+Home Assistant then offers the update. For a new stable version the workflow also opens an issue "New BamBuddy stable release: <version>", assigned to the repository owner. It links BamBuddy's release notes since the previous version, as a reminder to check them for anything this repository has to follow: new environment variables, a changed upstream Dockerfile or entrypoint, paths, ports. It blocks nothing; close it once checked.
+
+If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>", also assigned to the repository owner, and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
 
 **Build image** (Actions → Build image, on `main` only) rebuilds and republishes the current version's image after a change to a Dockerfile or `rootfs/`. Home Assistant offers an update only for a new version number, so existing installations get such a change with the next BamBuddy version; new installations get it at once.
 
@@ -213,7 +215,7 @@ GitHub keeps Actions switched off in a fork until you enable them on its **Actio
 - `image:` in both `config.yaml`, or Home Assistant keeps pulling this repository's images
 - the expected image name in `tests/lint.py`, or the validation fails
 - the visibility of your new GHCR packages to public – new packages start private, and Home Assistant cannot pull private ones
-- optionally `org.opencontainers.image.source` in both Dockerfiles and `repository.json`, and enable Issues in your fork (the Auto-update opens an issue when it gets blocked)
+- optionally `org.opencontainers.image.source` in both Dockerfiles and `repository.json`, and enable Issues in your fork (the Auto-update opens issues: a reminder for each new stable version, and one when it gets blocked)
 
 Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPDATE_DEPLOY_KEY` secret, the Auto-update commits with the regular token, which works as long as your `main` has no ruleset that blocks it.
 
