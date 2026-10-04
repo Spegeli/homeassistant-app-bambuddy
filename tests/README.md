@@ -91,8 +91,8 @@ and arm64, each natively, and run both scripts). It is called by:
     reports "Validation result", the check `main`'s ruleset requires, so
     nothing merges unvalidated; contributions go to `dev` and are merged
     there once their run is green
-  - manually (Actions -> Validate -> Run workflow), with a channel choice and a
-    switch for the container stage
+  - manually (Actions -> Validate -> Run workflow): everything, for the chosen
+    channel
 
   All other runs - a pull request to `dev`, a push, a manual run - report as
   "Validation summary": the ruleset matches checks by name on the commit, so
