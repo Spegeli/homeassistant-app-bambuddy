@@ -33,7 +33,7 @@ on:
 
 jobs:
   lint:
-    name: Lint ${{ inputs.context }}
+    name: Lint
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -48,10 +48,10 @@ jobs:
       - name: Install PyYAML
         run: pip install --quiet pyyaml
 
-      - name: Static checks
+      - name: Check config, translations and scripts
         run: python3 tests/lint.py ${{ inputs.context }}
 
-      - name: Shell syntax
+      - name: Check shell syntax
         run: |
           bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/run
           bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/finish
@@ -59,8 +59,8 @@ jobs:
           bash -n tests/image-checks.sh
           bash -n .github/scripts/resolve-build-args.sh
 
-  smoke:
-    name: Smoke ${{ inputs.context }} (${{ matrix.arch }})
+  container-tests:
+    name: Container test (${{ matrix.arch }})
     needs: lint
     if: inputs.smoke
     runs-on: ${{ matrix.runner }}
@@ -83,7 +83,7 @@ jobs:
 
       # Same resolution as _build.yml, so the test builds exactly what the
       # build would push. Inputs go through env, never into the script text.
-      - name: Resolve version and upstream digest
+      - name: Read version and upstream digest
         id: version
         env:
           CONTEXT: ${{ inputs.context }}
@@ -96,7 +96,7 @@ jobs:
 
       # No cache on purpose: a stale cache once produced an image tagged with a
       # new version that still contained the old BamBuddy.
-      - name: Build image (${{ matrix.arch }}, not pushed)
+      - name: Build image for ${{ matrix.arch }} (not pushed)
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
@@ -111,11 +111,11 @@ jobs:
             BUILD_ARCH=${{ matrix.ha_arch }}
             ${{ steps.version.outputs.digest_arg }}
 
-      - name: Image checks
+      - name: Check image contents
         env:
           CONTEXT: ${{ inputs.context }}
           VERSION: ${{ steps.version.outputs.version }}
         run: bash tests/image-checks.sh "${CONTEXT}" bambuddy:test "${VERSION}"
 
-      - name: Smoke tests
+      - name: Start app in every test scenario
         run: bash tests/smoke.sh bambuddy:test

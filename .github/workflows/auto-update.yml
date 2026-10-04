@@ -43,7 +43,7 @@ jobs:
   # STABLE: check -> validate -> build -> commit
   # ============================================================
   check-stable:
-    name: Check STABLE
+    name: Check for new Stable
     needs: only-main
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -90,7 +90,7 @@ jobs:
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "Current version: $CURRENT"
 
-      - name: Decide
+      - name: Decide whether to update
         id: decide
         env:
           LATEST: ${{ steps.get_version.outputs.latest }}
@@ -138,7 +138,7 @@ jobs:
           fi
 
   validate-stable:
-    name: Validate STABLE
+    name: Validate Stable
     needs: check-stable
     if: needs.check-stable.outputs.changed == 'true'
     permissions:
@@ -150,7 +150,7 @@ jobs:
       smoke: true
 
   build-stable:
-    name: Build STABLE
+    name: Build Stable
     needs: [check-stable, validate-stable]
     if: needs.check-stable.outputs.changed == 'true'
     permissions:
@@ -163,7 +163,7 @@ jobs:
       version: ${{ needs.check-stable.outputs.version }}
 
   commit-stable:
-    name: Commit STABLE
+    name: Commit Stable version
     needs: [check-stable, build-stable]
     if: needs.check-stable.outputs.changed == 'true'
     runs-on: ubuntu-24.04
@@ -184,7 +184,7 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.AUTO_UPDATE_DEPLOY_KEY }}
 
-      - name: Apply update and commit
+      - name: Set version, write changelog, push to main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -261,7 +261,7 @@ jobs:
   # skipped is not missed. block-stable does not wait for this job: if it
   # fails, the version stays published and nothing is blocked.
   remind-stable:
-    name: Remind STABLE review
+    name: Remind to review Stable
     needs: [check-stable, commit-stable]
     if: needs.commit-stable.result == 'success'
     runs-on: ubuntu-24.04
@@ -326,7 +326,7 @@ jobs:
             || echo "::warning::Could not assign ${URL} to ${OWNER}"
 
   block-stable:
-    name: Block STABLE on failure
+    name: Block Stable on failure
     needs: [check-stable, validate-stable, build-stable, commit-stable]
     # Any failure after check - not just a failed validation - would otherwise
     # repeat every hour: validate, build and push again while config.yaml
@@ -381,7 +381,7 @@ jobs:
   # DAILY: check -> validate -> build -> commit
   # ============================================================
   check-daily:
-    name: Check DAILY
+    name: Check for new Daily
     needs: only-main
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -469,7 +469,7 @@ jobs:
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "Current version: $CURRENT"
 
-      - name: Decide
+      - name: Decide whether to update
         id: decide
         run: |
           V="${{ steps.get_digest.outputs.version }}"
@@ -525,7 +525,7 @@ jobs:
           fi
 
   validate-daily:
-    name: Validate DAILY
+    name: Validate Daily
     needs: check-daily
     if: needs.check-daily.outputs.changed == 'true'
     permissions:
@@ -538,7 +538,7 @@ jobs:
       smoke: true
 
   build-daily:
-    name: Build DAILY
+    name: Build Daily
     needs: [check-daily, validate-daily]
     if: needs.check-daily.outputs.changed == 'true'
     permissions:
@@ -552,7 +552,7 @@ jobs:
       digest: ${{ needs.check-daily.outputs.digest }}
 
   commit-daily:
-    name: Commit DAILY
+    name: Commit Daily version
     needs: [check-daily, build-daily]
     if: needs.check-daily.outputs.changed == 'true'
     runs-on: ubuntu-24.04
@@ -573,7 +573,7 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.AUTO_UPDATE_DEPLOY_KEY }}
 
-      - name: Apply update and commit
+      - name: Set version, write changelog, push to main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -631,7 +631,7 @@ jobs:
           exit 1
 
   block-daily:
-    name: Block DAILY on failure
+    name: Block Daily on failure
     needs: [check-daily, validate-daily, build-daily, commit-daily]
     # Any failure after check - not just a failed validation - would otherwise
     # repeat every hour: validate, build and push again while config.yaml

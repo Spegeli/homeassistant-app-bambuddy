@@ -17,8 +17,8 @@ name: Validate
 #                                 main's check on the same commit
 #   either pull request runs a contributor's code from a fork with a
 #   read-only token and no secrets: pull_request, never pull_request_target
-#   manual                      - on any branch; channel and container tests
-#                                 as chosen; summed up as "Validation summary"
+#   manual                      - on any branch; everything for the chosen
+#                                 channel; summed up as "Validation summary"
 # main itself needs no run: changes only arrive through a validated pull
 # request, or as the auto-update's version commit, validated just before.
 # No schedule: GitHub disables a workflow that has one after 60 days without
@@ -31,8 +31,7 @@ run-name: >-
       && 'Validate dev'
       || github.event_name == 'push'
       && format('Validate {0} (lint only)', github.ref_name)
-      || inputs.smoke && format('Validate {0} on {1}', inputs.channel, github.ref_name)
-      || format('Validate {0} on {1} (lint only)', inputs.channel, github.ref_name) }}
+      || format('Validate {0} on {1}', inputs.channel, github.ref_name) }}
 
 on:
   push:
@@ -46,10 +45,6 @@ on:
         type: choice
         options: [both, stable, daily]
         default: both
-      smoke:
-        description: "Also build the image and run the container tests"
-        type: boolean
-        default: true
 
 # A newer push or pull request update makes the running validation obsolete.
 concurrency:
@@ -60,21 +55,23 @@ permissions:
   contents: read
 
 jobs:
+  # smoke: the container tests run everywhere except on a push to a branch
+  # other than dev, which gets the quick lint only.
   stable:
-    name: STABLE
+    name: Stable
     if: github.event_name != 'workflow_dispatch' || inputs.channel != 'daily'
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name != 'push' || github.ref_name == 'dev' }}
 
   daily:
-    name: DAILY
+    name: Daily
     if: github.event_name != 'workflow_dispatch' || inputs.channel != 'stable'
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
-      smoke: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_name == 'dev') || (github.event_name == 'workflow_dispatch' && inputs.smoke) }}
+      smoke: ${{ github.event_name != 'push' || github.ref_name == 'dev' }}
 
   # The one check main's ruleset requires; a fixed name stays valid when the
   # jobs above change. Only a pull request to main may report under that name:

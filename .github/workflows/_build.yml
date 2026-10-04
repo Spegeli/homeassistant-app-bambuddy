@@ -26,7 +26,7 @@ on:
 
 jobs:
   prepare:
-    name: Resolve version
+    name: Read version
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     # Only reads the repo. Without this block the job would inherit the
@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v7
 
       # Inputs go through env, never into the script text.
-      - name: Resolve version and upstream digest
+      - name: Read version and upstream digest
         id: v
         env:
           CONTEXT: ${{ inputs.context }}
@@ -50,8 +50,8 @@ jobs:
           DIGEST: ${{ inputs.digest }}
         run: bash .github/scripts/resolve-build-args.sh "${CONTEXT}" "${VERSION}" "${DIGEST}"
 
-  build:
-    name: Build ${{ matrix.platform }}
+  images:
+    name: Image ${{ matrix.tag_arch }}
     needs: prepare
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -76,7 +76,7 @@ jobs:
             tag_arch: arm64
 
     steps:
-      - name: Prepare
+      - name: Name the digest artifact
         run: |
           echo "PLATFORM_PAIR=$(echo '${{ matrix.platform }}' | tr / -)" >> "$GITHUB_ENV"
 
@@ -99,7 +99,7 @@ jobs:
       # children makes the package list readable and keeps them safe from any
       # "delete untagged versions" cleanup, which would otherwise break the
       # multi-arch tag that references them.
-      - name: Build and push ${{ matrix.tag_arch }}
+      - name: Build and push ${{ matrix.tag_arch }} image
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -118,7 +118,7 @@ jobs:
             BUILD_ARCH=${{ matrix.ha_arch }}
             ${{ needs.prepare.outputs.digest_arg }}
 
-      - name: Export digest
+      - name: Save image digest
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
@@ -128,7 +128,7 @@ jobs:
       # workflow run, and build.yml ("both") and auto-update.yml can build both
       # channels in one run - with plain "digests-linux-amd64" each merge job
       # collected the other channel's digests too and failed with "not found".
-      - name: Upload digest
+      - name: Hand digest to publish job
         uses: actions/upload-artifact@v7
         with:
           name: digests-${{ inputs.context }}-${{ env.PLATFORM_PAIR }}
@@ -137,8 +137,8 @@ jobs:
           retention-days: 1
 
   merge:
-    name: Merge manifest
-    needs: [prepare, build]
+    name: Publish version tag
+    needs: [prepare, images]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -148,14 +148,14 @@ jobs:
     steps:
       # "-linux-" right after the channel keeps "bambuddy" from also matching
       # "bambuddy-daily".
-      - name: Download digests
+      - name: Collect both digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-${{ inputs.context }}-linux-*
           merge-multiple: true
 
-      - name: Check digests
+      - name: Check both architectures are there
         working-directory: /tmp/digests
         run: |
           # Exactly one digest per architecture, or the index would be wrong.
@@ -176,7 +176,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Create and push manifest list
+      - name: Publish version and latest tags
         working-directory: /tmp/digests
         env:
           # Via env, not inline: the text contains colons and "://".
@@ -191,5 +191,5 @@ jobs:
             -t ${{ inputs.image }}:latest \
             $(printf '${{ inputs.image }}@sha256:%s ' *)
 
-      - name: Inspect
+      - name: Show published tag
         run: docker buildx imagetools inspect ${{ inputs.image }}:${{ needs.prepare.outputs.version }}
