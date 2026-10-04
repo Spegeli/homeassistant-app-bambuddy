@@ -9,7 +9,7 @@ name: Build image
 # version change - nothing rebuilds automatically then. It publishes
 # packages, so it only runs on main (see only-main).
 
-run-name: ${{ inputs.run_tests && format('Build {0}', inputs.channel) || format('Build {0} (no tests)', inputs.channel) }}
+run-name: ${{ inputs.run_tests && format('Build {0}', inputs.channel) || format('Build {0} (no validation)', inputs.channel) }}
 
 on:
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
           fi
 
   validate-stable:
-    name: Validate STABLE
+    name: Validate Stable
     needs: only-main
     if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'stable')
     uses: ./.github/workflows/_validate.yml
@@ -57,7 +57,7 @@ jobs:
       contents: read
 
   build-stable:
-    name: Build STABLE
+    name: Build Stable
     needs: [only-main, validate-stable]
     # always() keeps this reachable when the validation was skipped (run_tests
     # off, or the other channel selected); a real validation failure still
@@ -77,7 +77,7 @@ jobs:
       packages: write
 
   validate-daily:
-    name: Validate DAILY
+    name: Validate Daily
     needs: only-main
     if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'daily')
     uses: ./.github/workflows/_validate.yml
@@ -88,7 +88,7 @@ jobs:
       contents: read
 
   build-daily:
-    name: Build DAILY
+    name: Build Daily
     needs: [only-main, validate-daily]
     if: >-
       always()

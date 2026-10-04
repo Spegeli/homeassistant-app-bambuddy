@@ -58,7 +58,7 @@ jobs:
   # smoke: the container tests run everywhere except on a push to a branch
   # other than dev, which gets the quick lint only.
   stable:
-    name: STABLE
+    name: Stable
     if: github.event_name != 'workflow_dispatch' || inputs.channel != 'daily'
     uses: ./.github/workflows/_validate.yml
     with:
@@ -66,7 +66,7 @@ jobs:
       smoke: ${{ github.event_name != 'push' || github.ref_name == 'dev' }}
 
   daily:
-    name: DAILY
+    name: Daily
     if: github.event_name != 'workflow_dispatch' || inputs.channel != 'stable'
     uses: ./.github/workflows/_validate.yml
     with:
