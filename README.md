@@ -19,6 +19,9 @@
   <strong>Your printers. No cloud. Your rules.</strong><br>
   Self-hosted command center for Bambu Lab &mdash; from one A1 to an entire print farm.
 </p>
+<p align="center">
+  <em>This is the app, not the integration: it runs the BamBuddy server inside Home Assistant. For your printers' status, camera, AMS and controls as Home Assistant entities and a dashboard card, add the <a href="https://github.com/Spegeli/hacs_bambuddy">BamBuddy integration</a> as well.</em>
+</p>
 
 ---
 
@@ -80,6 +83,12 @@ All data (print archive, settings, logs) is stored persistently in the app's con
 - **On**: all BamBuddy data is permanently deleted.
 
 The app options from the **Configuration** tab are reset to their defaults on uninstall.
+
+---
+
+## 🧩 Home Assistant Integration
+
+The app runs BamBuddy; the [BamBuddy integration](https://github.com/Spegeli/hacs_bambuddy) (HACS) brings your printers into Home Assistant: entities for status, AMS, camera and controls, plus a dashboard card. When you set it up, enter the address you open BamBuddy with, e.g. `http://homeassistant.local:8000` (not `localhost`), and an API key created in BamBuddy.
 
 ---
 
