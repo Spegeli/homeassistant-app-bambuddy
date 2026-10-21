@@ -33,6 +33,12 @@
 
 ---
 
+## 🧩 Home Assistant Integration
+
+The app runs BamBuddy; the [BamBuddy integration](https://github.com/Spegeli/hacs_bambuddy) (HACS) brings your printers into Home Assistant: entities for status, AMS, camera and controls, plus a dashboard card. When you set it up, enter the address you open BamBuddy with, e.g. `http://homeassistant.local:8000` (not `localhost`), and an API key created in BamBuddy.
+
+---
+
 ## 📦 Installation
 
 ### Via button (Recommended)
@@ -83,12 +89,6 @@ All data (print archive, settings, logs) is stored persistently in the app's con
 - **On**: all BamBuddy data is permanently deleted.
 
 The app options from the **Configuration** tab are reset to their defaults on uninstall.
-
----
-
-## 🧩 Home Assistant Integration
-
-The app runs BamBuddy; the [BamBuddy integration](https://github.com/Spegeli/hacs_bambuddy) (HACS) brings your printers into Home Assistant: entities for status, AMS, camera and controls, plus a dashboard card. When you set it up, enter the address you open BamBuddy with, e.g. `http://homeassistant.local:8000` (not `localhost`), and an API key created in BamBuddy.
 
 ---
 
