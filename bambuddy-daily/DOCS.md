@@ -164,6 +164,12 @@ To have Home Assistant restart it automatically, turn on **Watchdog** on the app
 
 ---
 
+## Home Assistant Integration
+
+The app runs BamBuddy; the [BamBuddy integration](https://github.com/Spegeli/hacs_bambuddy) (HACS) brings your printers into Home Assistant: entities for status, AMS, camera and controls, plus a dashboard card. When you set it up, enter the address you open BamBuddy with, e.g. `http://homeassistant.local:8000` (not `localhost`), and an API key created in BamBuddy.
+
+---
+
 ## Support
 
 For issues related to the **Home Assistant App packaging**, open an issue at:
