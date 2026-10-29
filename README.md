@@ -13,6 +13,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2B%20AGPL--3.0-yellow" alt="License: MIT + AGPL-3.0"></a>
 </p>
 <p align="center">
+  💬 Questions and discussion: <a href="https://community.home-assistant.io/t/1026198">Home Assistant forum</a> · <a href="https://www.reddit.com/r/BambuLab/comments/1xinhv3/bambuddy_as_a_home_assistant_app_your_selfhosted/">r/BambuLab on Reddit</a>
+</p>
+<p align="center">
   <a href="https://github.com/maziggy/bambuddy">BamBuddy</a>, delivered as a first-class Home Assistant App for easy installation and updates.
 </p>
 <p align="center">
