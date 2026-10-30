@@ -123,7 +123,7 @@ For a full list of affected ports and details, see the **Documentation** tab of 
 
 - **Not a BamBuddy or Bambu Lab product.** This app is an independent community project that packages [BamBuddy](https://github.com/maziggy/bambuddy) for Home Assistant — all credit for BamBuddy itself goes to maziggy. Neither the BamBuddy project nor Bambu Lab develops, endorses or supports the app, and their support cannot help with it — use the [GitHub issue tracker](https://github.com/Spegeli/homeassistant-app-bambuddy/issues) instead. Bugs in BamBuddy itself still belong in the [BamBuddy project](https://github.com/maziggy/bambuddy/issues).
 - **Trademarks.** Bambu Lab, BamBuddy, their logos and other product names belong to their respective owners. They appear here only to name the software this app packages and the printers it works with.
-- **Use at your own risk.** The app is provided as is, without warranty — the packaging under the MIT License, BamBuddy under the AGPL-3.0 (see [License](#-license)).
+- **Use at your own risk.** The app is provided as is, without warranty — the packaging under the MIT License, BamBuddy under the AGPL-3.0 (see [LICENSE](LICENSE)).
 
 ---
 
