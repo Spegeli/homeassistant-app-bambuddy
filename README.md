@@ -28,6 +28,16 @@
 
 ---
 
+## ✨ Features
+
+- **One-click install** — prebuilt images for **amd64 and aarch64**; nothing is built on your device, so it also runs on a Raspberry Pi
+- **Two channels** — *BamBuddy* (stable, recommended) and *BamBuddy (Daily)* with the latest upstream daily build
+- **Automatic updates** — new BamBuddy releases are picked up automatically, tested on both architectures before they are published, then shown in Home Assistant as a normal update, release notes included
+- **Your data stays put** — the print archive, settings and logs live in the app's configuration folder (`addon_configs`); they survive updates and even an uninstall (unless you choose to delete that folder), and they are part of your Home Assistant backups
+- **Printer discovery and the virtual printer** — work out of the box
+
+---
+
 ## 📋 Requirements
 
 - Home Assistant OS – apps need the Supervisor, which Home Assistant Container does not have
@@ -111,8 +121,7 @@ For a full list of affected ports and details, see the **Documentation** tab of 
 
 ## ⚖️ Disclaimer
 
-- **Not an official BamBuddy release.** This app is an independent community project that packages [BamBuddy](https://github.com/maziggy/bambuddy) for Home Assistant. It is not affiliated with BamBuddy's developer or with Bambu Lab.
-- **Support.** Help here covers the app packaging and its installation only — report those problems in this repository's [issue tracker](https://github.com/Spegeli/homeassistant-app-bambuddy/issues). Bugs and feature requests for BamBuddy itself go to the [BamBuddy project](https://github.com/maziggy/bambuddy/issues).
+- **Not a BamBuddy or Bambu Lab product.** This app is an independent community project that packages [BamBuddy](https://github.com/maziggy/bambuddy) for Home Assistant — all credit for BamBuddy itself goes to maziggy. Neither the BamBuddy project nor Bambu Lab develops, endorses or supports the app, and their support cannot help with it — use the [GitHub issue tracker](https://github.com/Spegeli/homeassistant-app-bambuddy/issues) instead. Bugs in BamBuddy itself still belong in the [BamBuddy project](https://github.com/maziggy/bambuddy/issues).
 - **Trademarks.** Bambu Lab, BamBuddy, their logos and other product names belong to their respective owners. They appear here only to name the software this app packages and the printers it works with.
 - **Use at your own risk.** The app is provided as is, without warranty — the packaging under the MIT License, BamBuddy under the AGPL-3.0 (see [License](#-license)).
 
