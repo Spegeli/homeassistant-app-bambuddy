@@ -1,7 +1,7 @@
-## 1.3.1b1-daily.20261104
+## 1.3.1b1-daily.20261105
 
 > [!NOTE]
-> This is a **daily beta build** (2026-11-04). It contains the latest fixes and improvements but may have undiscovered issues.
+> This is a **daily beta build** (2026-11-05). It contains the latest fixes and improvements but may have undiscovered issues.
 >
 > **Docker users:** Update by pulling the new image:
 > ```
