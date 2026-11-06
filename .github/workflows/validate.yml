@@ -20,7 +20,8 @@ name: Validate
 #   manual                      - on any branch; everything for the chosen
 #                                 channel; summed up as "Validation summary"
 # main itself needs no run: changes only arrive through a validated pull
-# request, or as the auto-update's version commit, validated just before.
+# request, or as a version commit from Auto-update or Build image, validated
+# just before.
 # No schedule: GitHub disables a workflow that has one after 60 days without
 # repository activity, and then it runs on no push either.
 

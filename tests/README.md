@@ -99,7 +99,7 @@ and arm64, each natively, and run both scripts). It is called by:
   only the run that validates the merge into `main` may stand for it.
 - `auto-update.yml` - between `check` and `build`, so a failing validation
   means nothing is pushed to GHCR and `config.yaml` is never bumped
-- `build.yml` - before the manual build; untick `run_tests` to skip
+- `build.yml` - before every manual build
 
 `auto-update.yml` and `build.yml` publish packages and only run on `main`; a
 manual run started from another branch stops before anything is built.

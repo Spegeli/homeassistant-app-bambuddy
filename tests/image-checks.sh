@@ -41,6 +41,10 @@ fi
 label() { docker inspect "${IMAGE}" --format "{{index .Config.Labels \"$1\"}}"; }
 
 check "io.hass.version" "${VERSION}" "$(label io.hass.version)"
+# An app version like 1.3.1s1 runs BamBuddy 1.3.1.
+if [ "${CHANNEL}" = "bambuddy" ]; then
+  check "base.name" "ghcr.io/maziggy/bambuddy:${VERSION%s*}" "$(label org.opencontainers.image.base.name)"
+fi
 check "io.hass.type" "app" "$(label io.hass.type)"
 
 ARCH=$(label io.hass.arch)

@@ -125,8 +125,8 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       # Artifact names carry the channel. Artifacts are shared by the whole
-      # workflow run, and build.yml ("both") and auto-update.yml can build both
-      # channels in one run - with plain "digests-linux-amd64" each merge job
+      # workflow run, and auto-update.yml can build both channels in one run -
+      # with plain "digests-linux-amd64" each merge job
       # collected the other channel's digests too and failed with "not found".
       - name: Hand digest to publish job
         uses: actions/upload-artifact@v7

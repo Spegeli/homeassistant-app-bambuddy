@@ -34,7 +34,7 @@ Bugs and feature requests for **BamBuddy itself** (printer handling, UI, archive
 
 **Channels.** There are two channels: `bambuddy/` (Stable) and `bambuddy-daily/` (Daily). By default, apply a change to **both** so they stay consistent. Exception: if the change depends on an upstream feature that so far only exists in BamBuddy's daily build, change `bambuddy-daily/` only. Stable follows once that feature ships in a stable BamBuddy release. The pull request template asks which channels you changed.
 
-**Don't touch** `version:` in `config.yaml` or `CHANGELOG.md`. Both are updated automatically by the Auto-update workflow.
+**Don't touch** `version:` in `config.yaml` or `CHANGELOG.md`. Both are updated by the Auto-update and Build image workflows.
 
 **New or changed options** need all of these, in both channels and in the same order as in `config.yaml`:
 - `options` and `schema` in `config.yaml`
@@ -108,7 +108,7 @@ The two channels have the same structure; paths below `bambuddy/` apply to `bamb
 | `bambuddy/rootfs/etc/services.d/bambuddy/finish` | Runs when BamBuddy ends: logs why and stops the app |
 | `bambuddy/translations/` | Names and descriptions of the options in the app's **Configuration** tab (`en`, `de`, `fr`, `es`, `it`) |
 | `bambuddy/DOCS.md`, `bambuddy/README.md` | The app's **Documentation** tab and its card in the app store |
-| `bambuddy/CHANGELOG.md` | BamBuddy's release notes, written by the Auto-update workflow |
+| `bambuddy/CHANGELOG.md` | BamBuddy's release notes and our app updates, written by the Auto-update and Build image workflows |
 | `bambuddy-daily/upstream.digest` | The BamBuddy daily image the Daily channel is pinned to, written by the Auto-update workflow |
 | `.github/workflows/` | Validate, Auto-update and Build image, and their shared parts `_validate.yml` and `_build.yml` |
 | `.github/scripts/resolve-build-args.sh` | What to build — version, digest and image description — for both building and validating |
@@ -157,7 +157,7 @@ When Validate runs:
 - **A pull request to `dev` or `main`** — everything.
 - **By hand** — Actions → Validate → Run workflow: everything, for the channel you choose.
 
-Validate does not run on `main` itself: changes reach it only through a validated pull request, or as the Auto-update's version commit, validated just before. A newer push to the same branch, or a new commit in the same pull request, cancels the run it makes obsolete. A run started by hand and a push's run on the same branch cancel each other as well, whichever starts later cancelling the other: start one by hand only after the push's run has finished, or that run is cancelled and its Validation summary turns red.
+Validate does not run on `main` itself: changes reach it only through a validated pull request, or as a version commit from Auto-update or Build image, validated just before. A newer push to the same branch, or a new commit in the same pull request, cancels the run it makes obsolete. A run started by hand and a push's run on the same branch cancel each other as well, whichever starts later cancelling the other: start one by hand only after the push's run has finished, or that run is cancelled and its Validation summary turns red.
 
 One last check sums up each run: green when every check passed or its channel was left out by hand, red when one failed or the run was cancelled. A pull request to `main` calls it **Validation result**, the check `main` requires: a pull request to `main` merges only when it is green. Every other run — a pull request to `dev`, a push, a run by hand — calls it **Validation summary**: GitHub counts a required check by its name on a commit, so only the run that validates the merge into `main` may answer for it. A pull request to `dev` is merged once its Validation summary is green. A run by hand never counts for a pull request anyway, so leaving a channel out cannot stand in for the required check.
 
@@ -179,17 +179,17 @@ Please write commit messages as [Conventional Commits](https://www.conventionalc
 
 - Write the description in the imperative and lower case, for the people who run the app: `fix: keep the custom CA when its file name has spaces`.
 - Mark a change that breaks an installation with `!` after the type, as in `feat!: rename an option` — users have to act after such an update.
-- `chore: update BamBuddy … -> …` and `chore: pin BamBuddy Daily …` are the Auto-update workflow's own commits; don't write those by hand.
+- `chore: update BamBuddy … -> …`, `chore: pin BamBuddy Daily …` and `chore: app update BamBuddy … -> …` are the workflows' own commits; don't write those by hand.
 
 ## Releases
 
-This repository has no releases of its own: its versions are BamBuddy's, and the **Auto-update** workflow publishes them. Nobody sets `version:` in `config.yaml` or edits `CHANGELOG.md` by hand.
+Versions follow BamBuddy, and the **Auto-update** workflow publishes them. Between two BamBuddy releases, **Build image** can publish an app update for Stable. Nobody sets `version:` in `config.yaml` or edits `CHANGELOG.md` by hand.
 
 | | Stable (`bambuddy/`) | Daily (`bambuddy-daily/`) |
 |---|---|---|
 | Follows | BamBuddy's latest release | BamBuddy's daily build, pinned by digest in `upstream.digest` |
-| Version | BamBuddy's release tag, e.g. `1.2.5.6` | BamBuddy's latest pre-release tag, e.g. `1.2.6b1-daily.20260929` |
-| `CHANGELOG.md` | BamBuddy's release notes, newest on top, the last 15 versions | the notes of the current build only |
+| Version | BamBuddy's release tag, e.g. `1.2.5.6`; an app update adds `s1`, `s2`, … | BamBuddy's latest pre-release tag, e.g. `1.2.6b1-daily.20260929` |
+| `CHANGELOG.md` | BamBuddy's release notes and our app updates, newest on top, the last 15 versions | the notes of the current build only |
 | Image | `ghcr.io/spegeli/homeassistant-app-bambuddy` | `ghcr.io/spegeli/homeassistant-app-bambuddy-daily` |
 
 The Auto-update workflow runs every hour — GitHub starts scheduled runs late at times — and by hand, on `main` only. For each channel with a new BamBuddy version it
@@ -202,7 +202,20 @@ Home Assistant then offers the update. For a new stable version the workflow als
 
 If any step fails, the workflow opens an issue "Auto-update blocked: <channel> <version>", also assigned to the repository owner, and skips that version while the issue is open: fix the cause, close the issue, and the next run tries again.
 
-**Build image** (Actions → Build image, on `main` only) rebuilds and republishes the current version's image after a change to a Dockerfile or `rootfs/`. Home Assistant offers an update only for a new version number, so existing installations get such a change with the next BamBuddy version; new installations get it at once.
+**Build image** (Actions → Build image, on `main` only) always validates first, and builds one channel per run.
+
+*Stable* publishes an app update. Home Assistant offers an update only for a new version, so the run takes the next number: `1.3.1` → `1.3.1s1` → `1.3.1s2`. BamBuddy itself stays at `1.3.1`, and its next release goes back to a plain version; the Auto-update compares versions without the suffix. The suffix has to stay a letter Home Assistant cannot compare: `1.3.1-1`, `a`, `b`, `r`, `rc`, `post` or `dev` would not count as newer, and a fourth number collides with BamBuddy's own.
+
+| Changed | App update needed? |
+|---|---|
+| A Dockerfile, `rootfs/`, `config.yaml`, translations | Yes: installed apps keep the old state until they update. Otherwise the change goes out unannounced with the next BamBuddy version |
+| `DOCS.md`, READMEs | No |
+
+Run it right after the merge to `main`: until then, new installations get the new `config.yaml` with the old image. **Changes** is required and is what users read in the update dialog, so write it for them, not as a commit message; separate items with `;`. The run commits the version and a section in `CHANGELOG.md` to `main`. If it stops because `main` moved while it waited, start it again.
+
+*Daily* rebuilds the current version's image; it takes no changes. Installations get it with the next Daily version.
+
+**If a version turns out bad:** fix forward. A bad `1.3.1s1` is corrected with a revert through `dev` and a new app update, `1.3.1s2`; users can also restore the backup Home Assistant offers before an update. Never set `version:` back by hand: Build image refuses to reuse a released number, and the Auto-update would move on anyway. Only a bad BamBuddy release is different: open an issue titled exactly `Auto-update blocked: stable <version>` so the Auto-update skips it, set `version:` back to the last good version in a pull request, and publish an app update. Keep in mind that its changelog line says BamBuddy stays at that version, and that older BamBuddy code may not run on a database a newer one has already migrated. Never delete tags from GHCR: restoring a backup pulls the image of its version.
 
 ## Workflows in your fork
 
@@ -217,15 +230,15 @@ GitHub keeps Actions switched off in a fork until you enable them on its **Actio
 - the visibility of your new GHCR packages to public – new packages start private, and Home Assistant cannot pull private ones
 - optionally `org.opencontainers.image.source` in both Dockerfiles and `repository.json`, and enable Issues in your fork (the Auto-update opens issues: a reminder for each new stable version, and one when it gets blocked)
 
-Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPDATE_DEPLOY_KEY` secret, the Auto-update commits with the regular token, which works as long as your `main` has no ruleset that blocks it.
+Both workflows only run on `main`. You need no deploy key: without the `AUTO_UPDATE_DEPLOY_KEY` secret, they commit with the regular token, which works as long as your `main` has no ruleset that blocks it.
 
 **Keep these changes out of pull requests here.** Start a pull request branch from this repository's `dev` (e.g. `git switch -c my-fix upstream/dev`), not from a fork `main` that carries them.
 
 ## After merging
 
 - A change on `dev` reaches `main` with the next pull request from `dev`.
-- Changes to `config.yaml`, translations or `DOCS.md` take effect when Home Assistant reloads the repository.
-- Changes to the image reach installations with the next version (see [Releases](#releases)).
+- Changes to `DOCS.md` show up when Home Assistant reloads the repository.
+- Changes to the image, `config.yaml` or translations reach installations with the next version, or with an app update (see [Releases](#releases)).
 
 ## License
 
