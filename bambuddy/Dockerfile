@@ -9,8 +9,9 @@
 #
 # BAMBUDDY_VERSION has NO default — injected at build time via --build-arg from
 # bambuddy/config.yaml (version:). config.yaml is the single source of truth.
+# An app version like 1.3.1s1 is BamBuddy 1.3.1, so the base drops the suffix.
 ARG BAMBUDDY_VERSION
-FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION}
+FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION%s*}
 
 # All build-args in one place. S6_OVERLAY_VERSION and BASHIO_VERSION are pinned
 # here and bumped by hand; BAMBUDDY_VERSION and BUILD_ARCH come from the build
@@ -27,7 +28,7 @@ LABEL org.opencontainers.image.description="A powerful, self-hosted command cent
 LABEL org.opencontainers.image.source="https://github.com/Spegeli/homeassistant-app-bambuddy"
 LABEL org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
 # Which upstream stand is inside this image.
-LABEL org.opencontainers.image.base.name="ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION}"
+LABEL org.opencontainers.image.base.name="ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION%s*}"
 
 # Supervisor metadata (required when not using the HA builder). It reads
 # io.hass.version as the installed image version.

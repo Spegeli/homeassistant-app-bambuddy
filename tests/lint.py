@@ -61,6 +61,11 @@ def check_config(channel):
             r'version: "[0-9A-Za-z][0-9A-Za-z._-]*"', version_lines[0]):
         fail(name, 'config.yaml needs exactly one line version: "<version>" (no comment, double quotes)')
 
+    # Build image counts up from this, and the Dockerfile cuts the suffix off.
+    if name == "bambuddy" and isinstance(version, str) and not re.fullmatch(
+            r"\d+(\.\d+)+(s\d+)?", version):
+        fail(name, "Stable version must be BamBuddy's version, optionally with a suffix like s1")
+
     expected_slug = name.replace("-", "_")
     if config.get("slug") != expected_slug:
         fail(name, "slug is '{}', expected '{}'".format(config.get("slug"), expected_slug))

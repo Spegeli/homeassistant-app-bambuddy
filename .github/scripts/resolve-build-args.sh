@@ -8,7 +8,8 @@
 #   digest   explicit upstream digest; default: <context>/upstream.digest
 #
 # Outputs:
-#   version      the BamBuddy version (config.yaml is the single source)
+#   version      the app version (config.yaml is the single source): BamBuddy's
+#                version, on Stable possibly with a suffix like s1
 #   digest_arg   "BAMBUDDY_DIGEST=sha256:..." for channels whose Dockerfile pins
 #                its upstream base by digest (daily), empty otherwise
 #   description  one-line text for the GHCR package page (text only, max 512
@@ -54,9 +55,12 @@ fi
 # no markdown), so the description points to it instead. GHCR renders the
 # field as plain text and does not turn URLs into links, so the address is
 # given without https:// and the parts are separated by " · " to be skimmable.
-NOTES="github.com/maziggy/bambuddy/releases/tag/v${VERSION}"
+UPSTREAM=$(sed -E 's/s[0-9]+$//' <<<"${VERSION}")
+NOTES="github.com/maziggy/bambuddy/releases/tag/v${UPSTREAM}"
 if [ -n "${DIGEST}" ]; then
   DESCRIPTION="BamBuddy ${VERSION} · Daily · Home Assistant app · upstream ${DIGEST:0:19} · Release notes: ${NOTES}"
+elif [ "${UPSTREAM}" != "${VERSION}" ]; then
+  DESCRIPTION="BamBuddy ${UPSTREAM} · Stable · Home Assistant app ${VERSION} · Release notes: ${NOTES}"
 else
   DESCRIPTION="BamBuddy ${VERSION} · Stable · Home Assistant app · Release notes: ${NOTES}"
 fi

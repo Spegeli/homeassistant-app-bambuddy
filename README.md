@@ -90,6 +90,8 @@ Updates are checked **every hour**. As soon as a new BamBuddy release is availab
  
 No manual intervention required. 🎉
 
+A version like `1.3.1s1` is a change to this app between two BamBuddy releases: BamBuddy itself stays at `1.3.1`, and the next BamBuddy release goes back to its plain version number.
+
 ---
 
 ## 💾 Data Persistence

@@ -40,8 +40,9 @@ A log excerpt from the app's startup is ideal.
 - [ ] New or changed option: `options` + `schema` in `config.yaml`, all `translations/*.yaml` (`en`, `de`, `fr`, `es`, `it`), the options section in `DOCS.md`, a scenario in `tests/scenarios/` with assertions in `tests/smoke.sh` – in both channels, in the order of `config.yaml`
 - [ ] No token or other secret ends up in the log (the run script logs `Setting <VAR>: <value>`)
 - [ ] `DOCS.md` updated if user-facing behavior changed
+- [ ] Changes the Dockerfile, `rootfs/`, `config.yaml` or the translations: after merging to `main`, run **Build image** for Stable (see CONTRIBUTING → Releases)
 
 <!--
-Do NOT change `version:` in config.yaml or CHANGELOG.md – the Auto-update workflow maintains both.
+Do NOT change `version:` in config.yaml or CHANGELOG.md – the Auto-update and Build image workflows maintain both.
 Every pull request runs the Validate workflow; it is merged only once its validation is green.
 -->

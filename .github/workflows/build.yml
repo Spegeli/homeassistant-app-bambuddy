@@ -1,15 +1,19 @@
 name: Build image
 
-# Manual only. Replaces the former build-stable.yml / build-daily.yml: one
-# dialog, channel picked in the dropdown. The run list still shows which
-# channel was built, because run-name carries it.
+# Manual only, one channel per run; the run list shows which one.
 #
-# Versions are bumped by auto-update.yml, which builds and commits on its
-# own. Use this workflow after changing the Dockerfile or rootfs without a
-# version change - nothing rebuilds automatically then. It publishes
-# packages, so it only runs on main (see only-main).
+# Daily: rebuilds the current version's image.
+#
+# Stable: releases an app version between two BamBuddy releases, after a change
+# to the Dockerfile, rootfs, config.yaml or the translations. Home Assistant
+# offers an update only for a new version, so this always takes the next number
+# (1.3.1 -> 1.3.1s1 -> 1.3.1s2), validates, builds, and commits the version and
+# the changes to main. The next BamBuddy release goes back to its plain version;
+# auto-update.yml compares versions without the suffix.
+#
+# It publishes packages, so it only runs on main (see only-main).
 
-run-name: ${{ inputs.run_tests && format('Build {0}', inputs.channel) || format('Build {0} (no validation)', inputs.channel) }}
+run-name: Build ${{ inputs.channel }}
 
 on:
   workflow_dispatch:
@@ -17,15 +21,17 @@ on:
       channel:
         description: "Which channel to build and push"
         type: choice
-        options: [both, stable, daily]
-        default: both
-      run_tests:
-        description: "Run the validation first (lint and container tests)"
-        type: boolean
-        default: true
+        options: [daily, stable]
+        default: daily
+      changes:
+        description: "Stable only, required: what changed, for users to read. Separate items with ;"
+        type: string
+        required: false
+        default: ''
 
 # One publishing run at a time, shared with auto-update.yml: two runs pushing
-# the same tags would race. A run waits; it is never cancelled mid-push.
+# the same tags would race. A run waits and is never cancelled mid-push, but a
+# newer run can replace one that is still waiting: start that one again.
 concurrency:
   group: ghcr-publish
   cancel-in-progress: false
@@ -45,41 +51,167 @@ jobs:
             exit 1
           fi
 
+      # The run would go green without releasing anything.
+      - name: Refuse changes for a Daily build
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          CHANGES: ${{ inputs.changes }}
+        run: |
+          if [ "${CHANNEL}" = "daily" ] && [ -n "${CHANGES}" ]; then
+            echo "::error::Changes are for a Stable build. Choose the stable channel, or leave them empty."
+            exit 1
+          fi
+
+  prepare-stable:
+    name: Read next version
+    needs: only-main
+    if: inputs.channel == 'stable'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      from_version: ${{ steps.next.outputs.from_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # This run validates and builds the commit it was started on. If it had
+      # to wait and main moved, its version would be out of date: committing it
+      # could replace a newer BamBuddy version or reuse a released number.
+      - name: Stop if main moved
+        run: |
+          TIP=$(git ls-remote origin "${GITHUB_REF}" | cut -f1)
+          if [ "${TIP}" != "${GITHUB_SHA}" ]; then
+            echo "::error::main moved while this run waited. Start Build image again."
+            exit 1
+          fi
+
+      # The text becomes a list in the changelog. A line break could forge a
+      # version heading there. It stays in env, and later jobs read the input
+      # themselves: through $GITHUB_OUTPUT it could set other outputs.
+      - name: Check the changes
+        env:
+          CHANGES: ${{ inputs.changes }}
+        run: |
+          if [[ "${CHANGES}" == *[[:cntrl:]]* ]]; then
+            echo "::error::Changes must be a single line without control characters."
+            exit 1
+          fi
+          if [ -z "$(tr -d '[:space:];' <<<"${CHANGES}")" ]; then
+            echo "::error::A Stable build needs changes: they are what users read in the update dialog."
+            exit 1
+          fi
+
+      - name: Read next version
+        id: next
+        run: |
+          CURRENT=$(sed -n 's/^version: "\(.*\)"$/\1/p' bambuddy/config.yaml)
+          if ! [[ "${CURRENT}" =~ ^[0-9]+(\.[0-9]+)+(s[0-9]+)?$ ]]; then
+            echo "::error::cannot read the version in bambuddy/config.yaml (got '${CURRENT}')"
+            exit 1
+          fi
+          BASE="${CURRENT%s*}"
+          NUMBER=0
+          if [ "${BASE}" != "${CURRENT}" ]; then
+            NUMBER="${CURRENT##*s}"
+          fi
+          NEXT="${BASE}s$((NUMBER + 1))"
+          # A released number must never be built again: users on it would get
+          # nothing, and their backups would restore a different image.
+          if grep -qxF "## ${NEXT}" bambuddy/CHANGELOG.md; then
+            echo "::error::${NEXT} was released before, but config.yaml says ${CURRENT}. Do not set version: back by hand."
+            exit 1
+          fi
+          echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "from_version=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${CURRENT} -> ${NEXT}"
+
   validate-stable:
     name: Validate Stable
-    needs: only-main
-    if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'stable')
+    needs: prepare-stable
+    if: inputs.channel == 'stable'
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy
+      version: ${{ needs.prepare-stable.outputs.version }}
       smoke: true
     permissions:
       contents: read
 
   build-stable:
     name: Build Stable
-    needs: [only-main, validate-stable]
-    # always() keeps this reachable when the validation was skipped (run_tests
-    # off, or the other channel selected); a real validation failure still
-    # stops it, and so does the only-main guard.
-    if: >-
-      always()
-      && needs.only-main.result == 'success'
-      && (inputs.channel == 'both' || inputs.channel == 'stable')
-      && needs.validate-stable.result != 'failure'
-      && needs.validate-stable.result != 'cancelled'
+    needs: [prepare-stable, validate-stable]
+    if: inputs.channel == 'stable'
     uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy
       image: ghcr.io/spegeli/homeassistant-app-bambuddy
+      version: ${{ needs.prepare-stable.outputs.version }}
     permissions:
       contents: read
       packages: write
 
+  commit-stable:
+    name: Commit Stable version
+    needs: [prepare-stable, build-stable]
+    if: inputs.channel == 'stable'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # The current main, pushed with the deploy key as in auto-update.yml:
+      # main only accepts pull requests, and its ruleset lets this key through.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          ssh-key: ${{ secrets.AUTO_UPDATE_DEPLOY_KEY }}
+
+      - name: Set version, write changelog, push to main
+        env:
+          VERSION: ${{ needs.prepare-stable.outputs.version }}
+          FROM_VERSION: ${{ needs.prepare-stable.outputs.from_version }}
+          CHANGES: ${{ inputs.changes }}
+        run: |
+          # Re-running this job later must not put an old version back.
+          grep -qxF "version: \"${FROM_VERSION}\"" bambuddy/config.yaml \
+            || { echo "::error::bambuddy/config.yaml is no longer on ${FROM_VERSION}. Start Build image again."; exit 1; }
+          sed -i "s/^version: \".*\"/version: \"${VERSION}\"/" bambuddy/config.yaml
+          grep -qxF "version: \"${VERSION}\"" bambuddy/config.yaml \
+            || { echo "::error::version bump to ${VERSION} did not apply to bambuddy/config.yaml"; exit 1; }
+          # On top of the running changelog: HA's update dialog shows everything
+          # from "## <new version>" down to "## <installed version>", so anyone
+          # who has not installed the BamBuddy version yet still sees its notes.
+          {
+            printf '## %s\n\n**App update, BamBuddy stays at %s.**\n\n' "${VERSION}" "${VERSION%s*}"
+            printf '%s\n' "${CHANGES}" | tr ';' '\n' \
+              | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//;/^$/d;s/^/- /'
+            printf '\n'
+            cat bambuddy/CHANGELOG.md
+          } > "${RUNNER_TEMP}/CHANGELOG.md"
+          cp "${RUNNER_TEMP}/CHANGELOG.md" bambuddy/CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bambuddy/config.yaml bambuddy/CHANGELOG.md
+          git commit -m "chore: app update BamBuddy ${FROM_VERSION} -> ${VERSION}"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}), rebasing onto the current ${GITHUB_REF_NAME}"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::could not push the version bump after 3 attempts"
+          exit 1
+
   validate-daily:
     name: Validate Daily
     needs: only-main
-    if: inputs.run_tests && (inputs.channel == 'both' || inputs.channel == 'daily')
+    if: inputs.channel == 'daily'
     uses: ./.github/workflows/_validate.yml
     with:
       context: bambuddy-daily
@@ -89,13 +221,8 @@ jobs:
 
   build-daily:
     name: Build Daily
-    needs: [only-main, validate-daily]
-    if: >-
-      always()
-      && needs.only-main.result == 'success'
-      && (inputs.channel == 'both' || inputs.channel == 'daily')
-      && needs.validate-daily.result != 'failure'
-      && needs.validate-daily.result != 'cancelled'
+    needs: validate-daily
+    if: inputs.channel == 'daily'
     uses: ./.github/workflows/_build.yml
     with:
       context: bambuddy-daily
