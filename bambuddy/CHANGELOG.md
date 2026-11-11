@@ -1,3 +1,154 @@
+## 1.3.1
+
+**Bambuddy 1.3.1**
+
+**What this is**
+
+A feature and fix release on top of 1.3.0: five new features, four changes and 22 fixes. Four community PRs went in, and 17 people are credited.
+
+The headline is **Bambu Lab H3C support**: its nine-slot **AMS 3H** with the dryer zone, the nine-PrintTool **SwapTek** rack and the per-PrintTool external inputs, with load, unload, drying, queue dispatch and maintenance. The other headline is a fix for SQLite installs: closing a camera view could leave **a CPU core at 100%** and make pages such as Projects and Spool Inventory very slow until a restart. This came from a bug in aiosqlite, which Bambuddy now works around for every database connection.
+
+Also new: WLED lights that show each printer's status, several File Manager files queued as separate jobs in one go, temperatures and controls on Cam Wall tiles, and each H2C nozzle's print time. "Any model" jobs now go to the printer with the fewest print hours.
+
+New tables and columns are added automatically on both SQLite and PostgreSQL. There are no API changes.
+
+If you are coming from 1.2.5.7 or earlier, read the 1.3.0 release notes first; all of their upgrade callouts apply to you as well.
+
+**Before you update**
+
+- **Update the slicer sidecar image** for the H3C presets: the Bambu Studio sidecar now ships Bambu Studio 02.09.01.70 with the H3C printer presets, and the OrcaSlicer sidecar ships OrcaSlicer 2.5.0. Older sidecar images keep working.
+
+- **Update the SpoolBuddy daemon** on the kiosk (**Settings > Updates**) for the tag write fixes (#3076, #3500, #3504, #3505). Tags written with an earlier version can't be read by phones or other OpenTag3D readers (Bambuddy reads them fine); write them again to fix that.
+
+- **"Any model" jobs go to the printer with the fewest print hours (#3480).** The queue used to pick the first free printer of the model in its list; it now picks the one with the fewest print hours on its Maintenance counter. On a farm, jobs will land on different printers than before.
+
+- **Printer error notifications have new titles (#3486).** USB, network and file errors now read "System Error" instead of "Nozzle/Extruder Error", camera faults "Camera Error", and an A1 mini's AMS Lite runouts "AMS Lite Error". Filters or automations that match on the old titles need updating.
+
+- **A Windows backup restored on Linux or macOS before this release** still shows no thumbnails and can't reprint (#3501). Restore the backup again after updating.
+
+---
+
+**How to update**
+
+**Docker**
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+**Native install - recommended path**
+
+```bash
+sudo BRANCH=main /opt/bambuddy/install/update.sh
+```
+
+**Native install - manual path**
+
+```bash
+sudo systemctl stop bambuddy
+cd /opt/bambuddy
+sudo -u bambuddy git fetch --prune --tags --force origin
+sudo -u bambuddy git checkout main
+sudo -u bambuddy git reset --hard origin/main
+sudo /opt/bambuddy/venv/bin/pip install -r requirements.lock
+cd frontend && sudo npm i
+sudo systemctl start bambuddy
+```
+
+**Windows install**
+
+Download `bambuddy-1.3.1-windows-x64-setup.exe` from this release page (or the unversioned `bambuddy-windows-x64-setup.exe` alias). Existing Windows installs upgrade in place via the in-app Install Update flow.
+
+---
+
+**New**
+
+**Printers and AMS:**
+
+- **Bambu Lab H3C support** (#3442, requested by @Mx772, contributed by @daltonclift in #3490) - the H3C's nine-slot AMS 3H, laid out like the unit with a dryer box around its drying zone, the nine-position PrintTool rack and the per-PrintTool external inputs (**Ext-n**). Load and unload work from Bambuddy; an unload ends with pulling the filament back by hand, since the AMS 3H can't rewind, and the card says so. Drying targets the AMS 3H's drying zone, chamber heating switches the airduct to heating mode first, and queued prints are sent with the slot numbering Bambu Studio uses. The H3C gets its own firmware check, its 14 maintenance tasks with links to Bambu's guides, and its fault texts. Tested on an H3C with firmware 01.01.03.00.
+- **The H2C shows how long each nozzle has printed** (#1908, contributed by @Keybored02 in #3507) - hovering over a nozzle on the printer card, in the nozzle rack or on the left and right hotend shows its **Print time** next to **Wear**, on firmware that reports it.
+
+**Queue and File Manager:**
+
+- **Queue several selected files as separate jobs** (#3462, requested and contributed by @Eifel-Joe in #3471) - the print dialog for several selected files offers **Alternatives** (one job, printed by the first free printer that fits) or **Separate jobs** (one queue item per file, in the order of the list). Two files sliced for the same printer model start on Separate jobs.
+
+**Camera and lights:**
+
+- **Cam Wall tiles show temperatures and finish time, and can pause, stop and switch the light** (#3479, sponsor vote Q4 2026) - with the **Full** status overlay, each tile shows nozzle, bed and chamber temperatures and a printing tile its finish time. Hovering shows **Pause/Resume**, **Stop** and a chamber light switch, for users with the `printers:control` permission.
+- **WLED lights show the printer's status** (#1528, requested and contributed by @d3nn3s08 in #3124) - under **Settings > WLED**, assign a WLED preset to each printer state: Idle, Preparing, Printing, Paused, Finished, Failed / Error, Awaiting plate clear, Filament problem, HMS error and Offline. Bambuddy only switches presets; colours, effects and segments stay in WLED.
+
+**Changed**
+
+- **"Any model" jobs go to the printer with the fewest print hours** (#3480, sponsor vote Q4 2026) - so jobs and wear spread across a farm. Preferred colours still come first. See **Before you update**.
+- **Profile defaults is compact and has Apply all** - **Settings > Filament > Profile defaults** shows one line per default, sorted by product, with a search box. **Apply all** applies every default to the spools in stock, filling in only what a spool doesn't have yet.
+- **Slicer sidecars on Bambu Studio 02.09.01.70 and OrcaSlicer 2.5.0** (#3442) - the Bambu Studio sidecar ships the H3C printer presets. OrcaSlicer has no H3C presets yet.
+- **SpoolBuddy writes OpenTag3D 2.004 on NTAG215 and NTAG216 tags** (#3500, suggested by @pleasantone) - with material, brand, colour name, up to four colours, print temperatures, net weight and empty spool weight. NTAG213 tags are too small and keep the first version.
+
+**Fixes**
+
+**H3C:**
+
+- After a tool swap, the H3C's printer card could show the temperature of the hotend that just went back to the rack instead of the one printing (#3442, reported by @hurr1k4ne, cause found by @daltonclift). The card now shows the hotend on the toolhead, as Bambu Studio does, and names it by its rack position (**Nozzle 5**).
+- A nozzle's hover card showed a hotend without RFID in the rack as **Mounted** and the one on the toolhead as **Docked** (#3442, frame from @daltonclift). It now says **Mounted** for the nozzles on the toolhead.
+- A printer named "H3C" turned every "H3C" in the support package into [PRINTER], the model included (#3442, reported by @daltonclift). A name that is only a model name now stays.
+
+**Database and camera:**
+
+- Closing a camera view could leave a CPU core at 100% on SQLite, and other pages became very slow until a restart (#3515, reported by @BrainDeLook). Bambuddy now works around the aiosqlite bug behind it (omnilib/aiosqlite#403) for every database connection. PostgreSQL was not affected.
+- The floating camera window opened about twenty camera streams when it was open while the page loaded, and they filled the browser's connections to the server (#3431, reported by @buffdriver). Camera views now open one stream.
+
+**Printers, AMS and drying:**
+
+- On an A1 or A1 mini, the external spool showed as empty after a colour or preset change in Configure Slot, until the printer's next full update, and the preset check reported it as not confirmed (#3513, reported by @SaadShaya7).
+- An A2L with an AMS 2 Pro and an AMS Lite attached at the same time showed only the external spool (#3499, reported by @auberonkai). Both units now show. The connection diagnostic no longer fails an A2L on "Store sent files on external storage", which the A2L doesn't offer.
+- A printer prompt answered on the printer, such as the A1 mini's "is the filament extruded?", stayed in the HMS list until **Clear errors** was clicked (#3487).
+- A printer whose file service hung during a print was asked for its timelapse folder again and again, until an H2S refused every upload with "421 There are too many connections" (#3474, reported by @F9mm). The checks now back off and stop, and a printer answering 421 gets its own message in the queue.
+- Auto-drying never dried an AMS HT again after it accepted a drying command without heating, while the humidity alarms kept firing (#3478, reported by @superflyer11). Such a stuck timer now counts as not drying; after two in a row, auto-drying stops on that unit and sends **Auto-Drying Suspended**, saying the timer stood still (new template **Auto-Drying Not Heating**).
+
+**Queue, archives and usage:**
+
+- A queue job whose print the printer resumed, for example after a power cut or a Bambuddy restart, stayed "printing" and blocked the printer's queue (#3485, reported by @SaadShaya7). A print found paused when Bambuddy starts now carries on as the same print instead of a second archive.
+- A print that failed or was cancelled before its first layer could charge a whole spool, when the AMS read 0% for a moment while unloading (#3511). Such a print now charges nothing.
+- Failed and cancelled prints didn't get their timelapse (#3481). It is now fetched and attached like any other.
+- The log didn't say which auto-archive switch skipped a print (#3477, reported by @Fuzzylog2x). It now names the global switch or the printer, and the switch's description says what off means.
+
+**Notifications and HMS:**
+
+- Every restart sent printer errors again that the printer keeps in its list long after they happened, and several kinds of fault had the wrong title (#3486, reported by @SaadShaya7). Notified faults are now stored. See **Before you update** for the new titles.
+- The fix above logged "no such table: hms_notified_faults" and still sent the errors again, because the table was never created (#3502, reported by @pleasantone). It is created on the next start.
+
+**SpoolBuddy:**
+
+- The kiosk's **Write** page sent the write to the first registered device, which could be another kiosk or an old reader long offline, and every kiosk showed every reader's weight and tags (#3504, reported by @pleasantone). The kiosk now works with its own device.
+- With Bambuddy's own inventory, a tag written to a new spool stayed on the old spool too (#3505, reported by @pleasantone). It now moves.
+- **Write Tag** reported success for every write (#3076, reported by @jinjiangz, gaps found by @pleasantone). SpoolBuddy now reads the data back, refuses a tag too small or not NDEF-formatted, and no longer runs a write twice.
+- Tags written by SpoolBuddy showed as empty on phones and other OpenTag3D readers (#3500, reported by @pleasantone). The data now starts with the spool record. Tags written before need writing again.
+
+**Slicing and backup:**
+
+- A 3MF sliced in Bambuddy with a system process preset opened in Bambu Studio with the preset's own values, and a re-slice there lost the settings changed on top of it (#3497, reported by @mdbook).
+- A backup from Windows restored on Linux or macOS showed no thumbnails and refused 3D preview and reprint (#3501, reported by @Tech0verlord). The restore now converts the stored paths.
+
+**Merged community PRs in this release**
+
+- #3124 by @d3nn3s08 - WLED lights show the printer's status.
+- #3471 by @Eifel-Joe - queue several selected files as separate jobs.
+- #3490 by @daltonclift - Bambu Lab H3C support.
+- #3507 by @Keybored02 - each H2C nozzle's print time.
+
+**Thanks**
+
+To everyone who requested, reported, captured logs, or contributed: @auberonkai, @BrainDeLook, @buffdriver, @d3nn3s08, @daltonclift, @Eifel-Joe, @F9mm, @Fuzzylog2x, @hurr1k4ne, @jinjiangz, @Keybored02, @mdbook, @Mx772, @pleasantone, @SaadShaya7, @superflyer11, @Tech0verlord.
+
+---
+**Sponsors**
+
+Bambuddy is sustainable thanks to people who put their money where their use is. If this release saved you time or kept your farm running, the project runs on recurring contributions - there's no paid tier, no telemetry, no upsell, just sustainable maintenance.
+
+- GitHub Sponsors (recurring, 5 tiers from $5/mo to $300/mo) - https://github.com/sponsors/maziggy
+- Ko-fi (one-time or recurring) - https://ko-fi.com/maziggy
+
 ## 1.3.0
 
 **Bambuddy 1.3.0**
