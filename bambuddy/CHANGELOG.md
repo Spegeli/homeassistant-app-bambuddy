@@ -1,3 +1,151 @@
+## 1.3.2
+
+**Bambuddy 1.3.2**
+
+**What this is**
+
+A fix release on top of 1.3.1: four new features, three changes and 29 fixes. Eight community PRs went in, and 26 people are credited.
+
+The headline is a fix for everyone signed in to **Bambu Cloud** on the **Profiles** page: the Profiles page's cloud list failed to load, and the Slice dialog showed "Failed to load presets" and offered no presets at all, local ones included (#3593). Bambu Cloud answers with an empty value instead of an empty list for a preset type the account has none of, and Bambuddy did not handle that. Such a type now reads as empty, the cloud presets the account has are listed, and slicing works again.
+
+Also new: a maintenance log with a comment on every reset, a choice of which printer an "Any model" job takes, more printer status in the MQTT relay for Home Assistant, and slicer-specific material types in the profile editor. A slice sent again from the slicer now adds a print to its archive instead of a new archive.
+
+New tables and columns are added automatically on both SQLite and PostgreSQL. There are no breaking API changes.
+
+If you are coming from 1.3.0 or earlier, read the 1.3.1 release notes first; their upgrade callouts apply to you as well.
+
+**Before you update**
+
+- **Update the slicer sidecar images** if your sidecars run as a non-root user, for example in Kubernetes with `runAsNonRoot` (#3524). Since 1.3.1 they failed with `bambu-studio: Permission denied`. The sidecar compose file also has a new optional `SIDECAR_BIND` setting in `slicer-api/.env`, to publish the slicer ports on one address only.
+
+- **Users who are not in Administrators lose the old admin role (#3533).** On the first start after the update, the groups decide who is an admin. A user with the old admin role outside Administrators, such as a setup account moved to Operators, is no longer an admin. If they are the only admins, they are added to Administrators instead.
+
+- **MQTT smart plugs with a daily energy counter** (Tasmota's `ENERGY.Today`) lost a print's energy across midnight (#3582). Set the new **Energy JSON Path (lifetime)** on the plug (Tasmota: `ENERGY.Total`) to fix it. Without it, nothing changes.
+
+- **AMS slots set to a support filament before this release** keep PLA (or PA) as their type until they are configured again (#3559).
+
+- **On an iPhone**, remove Bambuddy from the Home Screen and add it again to get the new icon (#3607).
+
+---
+
+**How to update**
+
+**Docker**
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+**Native install - recommended path**
+
+```bash
+sudo BRANCH=main /opt/bambuddy/install/update.sh
+```
+
+**Native install - manual path**
+
+```bash
+sudo systemctl stop bambuddy
+cd /opt/bambuddy
+sudo -u bambuddy git fetch --prune --tags --force origin
+sudo -u bambuddy git checkout main
+sudo -u bambuddy git reset --hard origin/main
+sudo /opt/bambuddy/venv/bin/pip install -r requirements.lock
+cd frontend && sudo npm i
+sudo systemctl start bambuddy
+```
+
+**Windows install**
+
+Download `bambuddy-1.3.2-windows-x64-setup.exe` from this release page (or the unversioned `bambuddy-windows-x64-setup.exe` alias). Existing Windows installs upgrade in place via the in-app Install Update flow.
+
+---
+
+**New**
+
+- **A maintenance log for each printer, with a comment on every reset** (#3557, requested and contributed by @Alphakilo in #3569) - resetting a maintenance task asks first and takes an optional comment. Every reset is logged with the task, who did it, when and the print hours at the time. The **Log** button on each printer of the Maintenance page lists its resets, and **Export CSV** downloads them; **Export log** downloads every printer's log, deleted printers included. Earlier resets are copied into the log once, on upgrade.
+- **The MQTT relay's printer status has the door, extruder, filament and HMS errors, and the broker gets a Last Will** (#3401, requested by @Tomat0r; #1850, requested by @DingoPD, contributed by @Keybored02 in #3541) - `bambuddy/printers/{serial}/status` now carries `door_open`, `active_extruder`, `tray_now`, `ams`, `vt_tray` and `hms_errors`, so Home Assistant no longer has to poll REST for them. A crash or a killed container now publishes `{"status": "offline"}` on `bambuddy/status`.
+- **The profile editor offers the material types of the preferred slicer** (#2928, requested by @doncaruana, contributed by @Keybored02 in #3544) - the **Filament Type** dropdown lists Bambu Studio's or OrcaSlicer's types, whichever is chosen under Settings > Slicer. Existing profiles keep their type.
+- **The slicer sidecars can be published on one address only** (suggested by @pleasantone) - see **Before you update**.
+
+**Changed**
+
+- **Choose which printer an "Any model" job takes** (#2915, requested by @bryanmahin, contributed by @Keybored02 in #3547) - **Settings > Workflow > Printer Order for Any-Model Jobs**: the fewest print hours (the default, as before), the most, the printer idle the longest, or the printers' own priority, set in **Edit Printer**.
+- **A slice sent again from the slicer adds a print to its archive** (#1634, requested by @d3nn3s08, contributed by @Keybored02 in #3508) - a print sent from Bambu Studio or OrcaSlicer, or started on the printer, always got a new archive. A print whose G-code matches an archive now adds a run to it, which keeps its photos, timelapses, notes and tags. Existing archives are read once in the background after the update.
+- **The debug log shows what a command the printer reports back contains** (#3531) - so a support package captures exactly what a touchscreen action sends.
+
+**Fixes**
+
+**Slicing and Bambu Cloud:**
+
+- With a Bambu Cloud sign-in, the Slice dialog showed "Failed to load presets" and offered no presets at all, local ones included, and the Profiles page's cloud list failed the same way (#3593, reported by @KevinMidboe). A preset type the account has none of now reads as empty.
+- A failed slice for another printer came back as completed, with G-code for the printer the file was made for (#3535, reported by @Jesse-Cachai). The slice now fails with the slicer's error.
+- The slicer sidecars failed to slice when run as a non-root user (#3524, reported by @cubic3d). Needs the updated sidecar images.
+
+**Queue and printers:**
+
+- "Any model" queue jobs went to the first free printer without looking at its nozzle, and then failed the nozzle check (#3536, reported and fixed by @Eifel-Joe in #3554). A printer whose nozzle doesn't fit is now passed over, and if none fits the job waits instead of failing.
+- Long uploads to an A1 could end in a failed or unreadable print (#3538, reported by @SaadShaya7). Bambuddy now waits for the complete file before the print command, and silence during an upload no longer counts as a dead connection.
+- A printer that reconnected still waited out its upload backoff, up to an hour (#3563, reported by @Costyv95). It is now tried again on the next pass.
+- Spool assignments were lost when a printer reconnected mid-print and briefly reported a blank slot (#3526, reported by @SaadShaya7). The support package also no longer contains a virtual printer's serial number.
+- When the connection check in Add or Edit Printer failed, correcting the IP address, serial number or access code left only **Save anyway** (#3624, reported by @balin77). A corrected value now clears the warning, **Back** is now **Check again**, and the access code can be shown.
+- The H2 series' and the H3C's exhaust fan was labelled "Chamber Fan" (#3521, reported by @Spegeli).
+
+**Inventory, AMS and labels:**
+
+- A slot set to a support filament was written as plain PLA or PETG, so it was offered to every PLA part and to nothing that needed support (#3559). It now gets Bambu's type, PLA-S or PA-S. See **Before you update**.
+- A spool with a custom cloud preset got Generic PLA when assigned from a SpoolBuddy client or another API key (#3519, reported by @pleasantone).
+- Spoolman mode read a filament named after its product, like "Matte Scarlet Red", as a subtype with no colour (#3561, reported by @ARGACE), and renamed the Spoolman filament on every save.
+- A spool's slicer preset could not be removed, and clicking into the field could lose the preset's name (#3596, reported by @dertbv).
+- Spools got new ids when the inventory moved to another instance by CSV, so printed labels found the wrong spool (#3520, reported by @hurr1k4ne). The export now writes the ids and the import keeps them.
+- The spool CSV import read nothing from files saved by Excel with European regional settings (#3523, reported and fixed by @jayhemnani9910 in #3529).
+- A group of weighed spools always showed a weight mismatch.
+- Spool labels printed empty boxes for Polish, Czech, Cyrillic and Greek letters (#3553, reported by @wsciekly83) and for Chinese, Japanese and Korean (#3560, reported by @mohan456-wqs).
+- A long colour or filament name was cut off on a label line even with room below it (#3621, reported by @mohan456-wqs). It now continues on up to three lines.
+- **Take photo** could not read the QR code of a small spool label (#3616, reported by @balin77).
+
+**Archives, energy and backup:**
+
+- An archive printed more than once showed the first print's energy next to all plates' filament and cost (#3609, reported by @RafalHo). It now shows the totals of all its prints, as Statistics does.
+- An MQTT plug with a daily energy counter lost a print's energy across midnight (#3582, reported by @paulleonartcalvo). See **Before you update**.
+- Monitor-only MQTT plugs were switched by automation, which could hold a queue job with "the smart plug could not power it on" (#3583, reported by @paulleonartcalvo). Automation now leaves them alone.
+- Making or restoring a backup froze Bambuddy for as long as the files took to copy, half a minute or more with a large archive, and a restore logged a long list of thread stack traces although it succeeded.
+- A first Git backup to an empty GitHub repository failed with "Failed to get branch ref" (#3565, reported by @pike00).
+
+**Users and app:**
+
+- A user moved out of Administrators stayed an admin (#3533). See **Before you update**.
+- On a phone, a tap on a button could select its label instead of pressing it, and an AMS slot's card opened only on hover (#3577, reported by @balin77). A tap anywhere on a slot now opens its card.
+- iOS and Android clipped the home screen icon (#3607, contributed by @pietbrauer in #3617).
+
+**Install:**
+
+- The arm64 Docker image built its frontend under emulation, where the build ran for hours or hung. It is now built natively. Nothing changes for running installs.
+
+**Merged community PRs in this release**
+
+- #3508 by @Keybored02 - a slice sent again from the slicer adds a print to its archive.
+- #3529 by @jayhemnani9910 - the spool CSV import reads European Excel files.
+- #3541 by @Keybored02 - door, extruder, filament and HMS errors in the MQTT relay, and a Last Will.
+- #3544 by @Keybored02 - material types of the preferred slicer.
+- #3547 by @Keybored02 - choose which printer an "Any model" job takes.
+- #3554 by @Eifel-Joe - "Any model" jobs only go to a printer whose nozzle fits.
+- #3569 by @Alphakilo - a maintenance log for each printer.
+- #3617 by @pietbrauer - home screen icon padding.
+
+**Thanks**
+
+To everyone who requested, reported, captured logs, or contributed: @Alphakilo, @ARGACE, @balin77, @bryanmahin, @Costyv95, @cubic3d, @d3nn3s08, @dertbv, @DingoPD, @doncaruana, @Eifel-Joe, @hurr1k4ne, @jayhemnani9910, @Jesse-Cachai, @KevinMidboe, @Keybored02, @mohan456-wqs, @paulleonartcalvo, @pietbrauer, @pike00, @pleasantone, @RafalHo, @SaadShaya7, @Spegeli, @Tomat0r, @wsciekly83.
+
+---
+**Sponsors**
+
+Bambuddy is sustainable thanks to people who put their money where their use is. If this release saved you time or kept your farm running, the project runs on recurring contributions - there's no paid tier, no telemetry, no upsell, just sustainable maintenance.
+
+- GitHub Sponsors (recurring, 5 tiers from $5/mo to $300/mo) - https://github.com/sponsors/maziggy
+- Ko-fi (one-time or recurring) - https://ko-fi.com/maziggy
+
 ## 1.3.1
 
 **Bambuddy 1.3.1**
