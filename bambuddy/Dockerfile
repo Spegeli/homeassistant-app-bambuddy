@@ -11,6 +11,29 @@
 # bambuddy/config.yaml (version:). config.yaml is the single source of truth.
 # An app version like 1.3.1s1 is BamBuddy 1.3.1, so the base drops the suffix.
 ARG BAMBUDDY_VERSION
+
+# Home Assistant Ingress serves the app below /api/hassio_ingress/<token>/,
+# while upstream's frontend expects to sit at "/". So the frontend is rebuilt
+# from the same release tag with the changes in ingress/ (see
+# ingress/patch-frontend.mjs) and replaces the one in the upstream image. Like
+# upstream, it is built natively on the build host: the output is plain JS/CSS.
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS ingress-frontend
+ARG BAMBUDDY_VERSION
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+# Upstream keeps only the newest daily tag, so an older Daily version cannot be
+# rebuilt any more (just like its base image, once upstream cleans it up).
+RUN git clone --quiet --depth 1 --branch "v${BAMBUDDY_VERSION%s*}" \
+        https://github.com/maziggy/bambuddy.git /src \
+    || { echo "BamBuddy source tag v${BAMBUDDY_VERSION%s*} not found upstream" >&2; exit 1; }
+COPY ingress /ingress
+RUN node /ingress/patch-frontend.mjs /src
+WORKDIR /src/frontend
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund \
+    && npm run build
+
 FROM ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION%s*}
 
 # All build-args in one place. S6_OVERLAY_VERSION and BASHIO_VERSION are pinned
@@ -39,15 +62,20 @@ LABEL io.hass.arch="${BUILD_ARCH}"
 WORKDIR /app
 
 # jq + xz-utils bootstrap s6-overlay and bashio; iproute2 gives the real `ip`
-# (BusyBox's has no -j) so virtual printers can bind IP aliases. curl and
-# ca-certificates are already in the upstream image. jq stays at runtime too,
-# bashio reads the app options through it.
+# (BusyBox's has no -j) so virtual printers can bind IP aliases; nginx serves
+# Home Assistant Ingress. curl and ca-certificates are already in the upstream
+# image. jq stays at runtime too, bashio reads the app options through it.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         jq \
         xz-utils \
         iproute2 \
+        nginx \
     && rm -rf /var/lib/apt/lists/*
+
+# The frontend rebuilt for Ingress (first stage) replaces upstream's.
+RUN rm -rf /app/static
+COPY --from=ingress-frontend /src/static /app/static
 
 # s6-overlay v3, the supervision layer every HA app runs under. The last step
 # links with-contenv: s6 v3 installs it at /command/with-contenv, but the
@@ -80,11 +108,13 @@ ENV PYTHONUNBUFFERED=1 \
 # s6's 3 s kill grace stays within the 30 s stop timeout in config.yaml.
 ENV S6_SERVICES_GRACETIME=25000
 
-# s6 service definition (run + finish), copied executable in one step.
+# s6 service definitions (run + finish), copied executable in one step.
 # Deliberately scoped to this one directory instead of "COPY rootfs /": --chmod
 # also applies to the directories along the path. Add a line here if rootfs
 # ever gains another path.
 COPY --chmod=755 rootfs/etc/services.d/bambuddy /etc/services.d/bambuddy
+COPY --chmod=755 rootfs/etc/services.d/nginx /etc/services.d/nginx
+COPY rootfs/etc/nginx/ingress.conf /etc/nginx/ingress.conf
 
 # Upstream ships its own ENTRYPOINT (PUID/PGID + gosu drop) and a CMD that
 # starts uvicorn. Replace the entrypoint with s6's /init and blank CMD, else

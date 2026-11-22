@@ -196,6 +196,39 @@ def check_dockerfile(channel):
         ok("Dockerfile COPY covers all {} rootfs files".format(len(files)))
 
 
+def check_ingress(channel, config):
+    """Home Assistant Ingress: config, the nginx service and the frontend changes."""
+    name = channel.name
+    before = len(FAILURES)
+    for key, want in (("ingress", True), ("ingress_port", 0), ("ingress_stream", True)):
+        if config.get(key) != want:
+            fail(name, "config.yaml: {} must be {}".format(key, want))
+    for relative in ("ingress/ingress.ts", "ingress/patch-frontend.mjs", "rootfs/etc/nginx/ingress.conf"):
+        if not (channel / relative).is_file():
+            fail(name, "{} is missing".format(relative))
+    run = channel / "rootfs/etc/services.d/nginx/run"
+    finish = channel / "rootfs/etc/services.d/nginx/finish"
+    for path, shebang in ((run, "#!/usr/bin/with-contenv bashio"),
+                          (finish, "#!/usr/bin/env bashio")):
+        if not path.is_file():
+            fail(name, "nginx/{} is missing".format(path.name))
+            continue
+        if b"\r" in path.read_bytes():
+            fail(name, "nginx/{} has CRLF line endings".format(path.name))
+        if not path.read_text(encoding="utf-8").startswith(shebang):
+            fail(name, "nginx/{} must start with '{}'".format(path.name, shebang))
+    conf = channel / "rootfs/etc/nginx/ingress.conf"
+    if conf.is_file():
+        text = conf.read_text(encoding="utf-8")
+        # Ingress must only answer the Supervisor; with host_network the port
+        # is open on the host.
+        for line in ("allow 172.30.32.2;", "deny all;", "listen %%INGRESS_PORT%%;"):
+            if not re.search(r"^\s*{}$".format(re.escape(line)), text, re.M):
+                fail(name, "ingress.conf is missing the line '{}'".format(line))
+    if len(FAILURES) == before:
+        ok("Ingress config, nginx service and frontend changes present")
+
+
 def check_upstream_digest(channel):
     """Daily pins its upstream base by digest (no versioned daily tags upstream)."""
     name = channel.name
@@ -224,6 +257,11 @@ def report_channel_drift(channels):
     drifted = []
     for relative in ("rootfs/etc/services.d/bambuddy/run",
                      "rootfs/etc/services.d/bambuddy/finish",
+                     "rootfs/etc/services.d/nginx/run",
+                     "rootfs/etc/services.d/nginx/finish",
+                     "rootfs/etc/nginx/ingress.conf",
+                     "ingress/ingress.ts",
+                     "ingress/patch-frontend.mjs",
                      "translations/en.yaml",
                      "DOCS.md"):
         a, b = first / relative, second / relative
@@ -243,6 +281,7 @@ def main():
         check_translations(channel, config)
         check_scripts(channel)
         check_dockerfile(channel)
+        check_ingress(channel, config)
         check_upstream_digest(channel)
 
     report_channel_drift(channels)

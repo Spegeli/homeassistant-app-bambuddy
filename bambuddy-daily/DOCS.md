@@ -1,5 +1,19 @@
 # BamBuddy (Daily) - Documentation
 
+## Sidebar (Home Assistant Ingress)
+
+BamBuddy opens in the Home Assistant sidebar (turn on **Show in sidebar** on the app's **Info** tab) and with **Open Web UI**. That works wherever Home Assistant does: on the LAN, over HTTPS, through Home Assistant Cloud and in the Companion app. No port has to be opened and nothing is embedded; Home Assistant handles the login, and only Home Assistant administrators see the panel. If BamBuddy's own authentication is on, it asks for its login in the panel as well.
+
+How it works: the app rebuilds BamBuddy's frontend from the same release with a small set of changes (`ingress/` in this repository) so it runs below Home Assistant's Ingress path, and nginx inside the app serves Ingress to the Supervisor only. Opened directly on port 8000, BamBuddy is unchanged.
+
+Not available through Ingress (use port 8000 on the LAN for these):
+
+- the virtual printer, which slicers reach on the printer ports
+- **Open in slicer** links: the slicer has no Home Assistant session
+- installing BamBuddy as an app (PWA) and its offline cache
+
+---
+
 ## Configuration Options
 
 ### Trusted Frame Origins
@@ -22,6 +36,8 @@ https://my-ha-instance.example.com
 Add every origin from which you access Home Assistant. If you access HA from multiple addresses (local IP, local hostname, external domain), add all of them.
 
 > **Note:** iFrame embedding via an HTTPS origin into an HTTP BamBuddy instance (port 8000) will be blocked by the browser due to mixed content policy. This approach works reliably on LAN with HTTP only.
+
+> **Not needed for the sidebar:** Ingress serves BamBuddy on Home Assistant's own origin, whatever this list contains.
 
 ---
 

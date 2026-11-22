@@ -36,6 +36,7 @@ bash tests/image-checks.sh bambuddy bambuddy:test          # version from config
 bash tests/image-checks.sh bambuddy bambuddy:test 1.2.5.6  # explicit expected version
 bash tests/smoke.sh bambuddy:test                          # all scenarios
 bash tests/smoke.sh bambuddy:test all-on                   # one scenario
+bash tests/ingress.sh bambuddy:test                        # Home Assistant Ingress
 ```
 
 `image-checks.sh` inspects the built image: `io.hass.version` against the
@@ -43,7 +44,9 @@ expected version (this only proves the label was set from the build argument;
 the no-cache test build guards against a stale image under a new tag),
 `io.hass.type`/`arch`, `ENTRYPOINT`/`CMD`, the `ENV` defaults including
 `S6_SERVICES_GRACETIME`, the curl-based `HEALTHCHECK`, 0755 on run and finish,
-the `with-contenv` symlink, bashio, jq, `ip -j`, and that `import cv2` works.
+the `with-contenv` symlink, bashio, jq, `ip -j`, that `import cv2` works, and
+for Ingress: 0755 on the nginx run and finish, nginx with the sub module,
+`ingress.conf` passing `nginx -t`, and the rebuilt frontend in `/app/static`.
 
 `smoke.sh` boots the image once per scenario in `scenarios/` against the mock
 Supervisor in `mock-supervisor/`, then asserts the web UI, `/health`, exactly
@@ -113,3 +116,17 @@ build or push, commit), the workflow opens an issue titled
 `Auto-update blocked: <channel> <version>` and skips that version while the
 issue is open, so the hourly cron does not retry it forever. Close the issue
 after fixing the cause.
+
+`ingress.sh` starts the app behind `fake-ingress/nginx.conf`, a stand-in for
+the Supervisor's Ingress proxy: the path prefix `/api/hassio_ingress/smoketoken`,
+the `X-Ingress-Path` header and the source address 172.30.32.2 on a
+172.30.32.0/23 network, like the real Supervisor. With curl it checks the
+prefix in `index.html`, the CSP `frame-ancestors 'self'` and
+`X-Frame-Options`, that any other address gets 403 on the Ingress port, and
+that a 20 MB upload passes. Then `ingress_browser.py` runs in the Playwright
+image (pinned by digest): headless Chromium opens the app the way Home
+Assistant shows it, in a same-origin iframe, and fails on any request that
+leaves the prefix, static files that do not load, a missing WebSocket or
+fonts, CSP violations or a redirect loop. It covers the first-run redirect to
+`/setup`, finishes the setup with a POST through Ingress, clicks to another
+page, opens a deep link, and checks that port 8000 is unchanged.

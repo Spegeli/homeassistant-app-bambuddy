@@ -1,0 +1,32 @@
+#!/usr/bin/env bashio
+# ==============================================================================
+# Home Assistant App: BamBuddy
+# Runs when the "nginx" service (Ingress) ends, whatever the reason: logs why and halts
+# the whole container. Restarting is left to Home Assistant's watchdog, which
+# the user switches on per app and which gives up after repeated failures - a
+# restart by s6 inside the container would bypass both and could loop forever.
+# No with-contenv here - this script needs bashio only, not the app environment.
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+# s6 passes the exit code, or 256 plus the signal number if a signal ended it.
+declare APP_EXIT_CODE=${1}
+declare APP_SIGNAL=${2:-0}
+
+if [[ "${APP_EXIT_CODE}" -eq 256 ]] && [[ "${APP_SIGNAL}" -eq 15 ]]; then
+  # SIGTERM: a normal stop or restart from Home Assistant. The container has to
+  # end with 0 - the Supervisor warns about apps that exit with 143.
+  bashio::log.info "Ingress stopped (SIGTERM)"
+elif [[ "${APP_EXIT_CODE}" -eq 256 ]]; then
+  # Any other signal, e.g. 9 from the kernel when memory runs out. 128 + signal
+  # is the exit code a shell reports for it.
+  bashio::log.warning "Ingress (nginx) was killed by signal ${APP_SIGNAL}, halting app"
+  echo $((128 + APP_SIGNAL)) > /run/s6-linux-init-container-results/exitcode
+elif [[ "${APP_EXIT_CODE}" -ne 0 ]]; then
+  bashio::log.warning "Ingress (nginx) crashed (exit code ${APP_EXIT_CODE}), halting app"
+  echo "${APP_EXIT_CODE}" > /run/s6-linux-init-container-results/exitcode
+else
+  bashio::log.info "Ingress (nginx) exited (code 0)"
+fi
+
+exec /run/s6/basedir/bin/halt
