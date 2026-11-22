@@ -34,6 +34,7 @@
 - **Two channels** — *BamBuddy* (stable, recommended) and *BamBuddy (Daily)* with the latest upstream daily build
 - **Automatic updates** — new BamBuddy releases are picked up automatically, tested on both architectures before they are published, then shown in Home Assistant as a normal update, release notes included
 - **Your data stays put** — the print archive, settings and logs live in the app's configuration folder (`addon_configs`); they survive updates and even an uninstall (unless you choose to delete that folder), and they are part of your Home Assistant backups
+- **In the Home Assistant sidebar** — BamBuddy opens through Home Assistant Ingress, also remotely via Home Assistant Cloud and in the Companion app, without opening a port
 - **Printer discovery and the virtual printer** — work out of the box
 
 ---
@@ -109,9 +110,9 @@ The app options from the **Configuration** tab are reset to their defaults on un
 
 ## ⚠️ Known Limitations
  
-### HA Ingress — Not Supported
+### HA Ingress — Not Everything Works There
  
-HA Ingress is currently **not supported** and is not planned. BamBuddy's SPA architecture relies on a stable origin for API calls, routing, PWA scope, and service workers — all of which are incompatible with HA Ingress's rotating per-session subpaths. This would require extensive rewrites to BamBuddy core.
+Through Ingress (the sidebar) the virtual printer, **Open in slicer** links and installing BamBuddy as an app (PWA) are not available; use port 8000 on the LAN for those. See the documentation for details.
  
 ### Virtual Printer — Potential Port Conflicts
 

@@ -57,6 +57,10 @@ jobs:
           bash -n ${{ inputs.context }}/rootfs/etc/services.d/bambuddy/finish
           bash -n tests/smoke.sh
           bash -n tests/image-checks.sh
+          bash -n tests/ingress.sh
+          bash -n ${{ inputs.context }}/rootfs/etc/services.d/nginx/run
+          bash -n ${{ inputs.context }}/rootfs/etc/services.d/nginx/finish
+          python3 -m py_compile tests/ingress_browser.py
           bash -n .github/scripts/resolve-build-args.sh
 
   container-tests:
@@ -119,3 +123,8 @@ jobs:
 
       - name: Start app in every test scenario
         run: bash tests/smoke.sh bambuddy:test
+
+      # The app behind a stand-in for the Supervisor's Ingress proxy, checked
+      # with curl and in a headless browser (Playwright).
+      - name: Home Assistant Ingress
+        run: bash tests/ingress.sh bambuddy:test

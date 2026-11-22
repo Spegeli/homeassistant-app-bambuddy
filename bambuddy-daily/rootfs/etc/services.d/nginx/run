@@ -1,0 +1,20 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant App: BamBuddy
+# Starts nginx as the s6 service "nginx". It serves Home Assistant Ingress and
+# passes every request on to BamBuddy (the "bambuddy" service, port 8000).
+# The config template is /etc/nginx/ingress.conf.
+# ==============================================================================
+
+# With host_network the Supervisor assigns a free port (ingress_port: 0).
+PORT=$(bashio::addon.ingress_port)
+if ! [[ "${PORT}" =~ ^[0-9]+$ ]]; then
+  # BamBuddy itself stays reachable on port 8000, so do not halt the app.
+  bashio::log.warning "No Ingress port from the Supervisor (got '${PORT}'), Ingress is off"
+  exec sleep infinity
+fi
+
+sed "s/%%INGRESS_PORT%%/${PORT}/" /etc/nginx/ingress.conf > /run/nginx-ingress.conf
+
+bashio::log.info "Starting Ingress on port ${PORT} ..."
+exec nginx -c /run/nginx-ingress.conf -g 'daemon off;'

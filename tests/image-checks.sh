@@ -82,6 +82,10 @@ OUT=$(docker run --rm --entrypoint sh "${IMAGE}" -c '
   jq --version >/dev/null && echo "jq ok"
   ip -j addr >/dev/null 2>&1 && echo "ip-json ok"
   python -c "import cv2; print(\"cv2 \" + cv2.__version__)"
+  stat -c "%a %n" /etc/services.d/nginx/run /etc/services.d/nginx/finish
+  nginx -V 2>&1 | grep -q -- --with-http_sub_module && echo "nginx sub ok"
+  sed "s/%%INGRESS_PORT%%/8099/" /etc/nginx/ingress.conf > /tmp/ingress.conf && nginx -t -c /tmp/ingress.conf 2>/dev/null && echo "ingress.conf ok"
+  grep -l "hassio_ingress" /app/static/assets/*.js >/dev/null && echo "ingress frontend ok"
 ' 2>&1)
 
 echo "${OUT}" | sed 's/^/       /'
@@ -102,6 +106,11 @@ expect_line "^bashio ok$" "bashio installed"
 expect_line "^jq ok$" "jq installed"
 expect_line "^ip-json ok$" "iproute2 ip -j works"
 expect_line "^cv2 " "OpenCV imports (plate detection)"
+expect_line "^755 /etc/services.d/nginx/run$" "nginx run is 0755"
+expect_line "^755 /etc/services.d/nginx/finish$" "nginx finish is 0755"
+expect_line "^nginx sub ok$" "nginx has the sub module (Ingress)"
+expect_line "^ingress.conf ok$" "ingress.conf passes nginx -t"
+expect_line "^ingress frontend ok$" "frontend rebuilt for Ingress"
 
 if [ "${FAIL}" = 0 ]; then
   echo "IMAGE CHECKS PASSED"

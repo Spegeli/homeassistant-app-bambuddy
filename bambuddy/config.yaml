@@ -39,6 +39,14 @@ schema:
   use_system_trust_store: bool
   certfile: str
   debug: bool
+# Home Assistant Ingress (sidebar panel, also through Home Assistant Cloud).
+# nginx in the app serves it; with host_network the Supervisor picks a free
+# port. ingress_stream passes uploads through instead of buffering them in the
+# Supervisor, which caps buffered requests at 16 MB.
+ingress: true
+ingress_port: 0
+ingress_stream: true
+panel_icon: mdi:printer-3d
 # Port 8000 is fixed: host_network ignores HA port mappings anyway.
 webui: http://[HOST]:[PORT:8000]
 watchdog: http://[HOST]:[PORT:8000]/health

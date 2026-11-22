@@ -29,7 +29,10 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/addons/self/options/config"):
             self._send(OPTIONS)
         elif path.startswith("/addons/self/info"):
-            self._send({"slug": "bambuddy", "options": OPTIONS})
+            # ingress_port is what bashio::addon.ingress_port reads.
+            self._send({"slug": "bambuddy", "options": OPTIONS, "ingress": True,
+                        "ingress_port": 8099,
+                        "ingress_entry": "/api/hassio_ingress/smoketoken"})
         elif path.startswith("/info"):
             self._send({"timezone": "Europe/Berlin", "supervisor": "test"})
         elif path.startswith("/core/info"):
